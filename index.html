@@ -3,12 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>简单的 Canvas 游戏</title>
+    <title>Ascent Defense - 策略原型</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="container">
+        <div class="header-status">
+            核心 HP: <span id="coreHP">10/10</span> | GOLD: <span id="gold">450</span> | TP: <span id="tp">3</span> | 波次: <span id="wave">12</span>
+        </div>
 
-    <script src="game.js"></script>
+        <div class="map-deployment">
+            <h2>[地图部署 (4x4)]</h2>
+            <div id="grid-container">
+                </div>
+        </div>
+
+        <div class="command-section">
+            <label for="command-input">当前行动/指令输入:</label>
+            <input type="text" id="command-input" placeholder="例如: BUILD C2 T1 或 CHOOSE 2">
+            <button onclick="processCommand()">执行</button>
+        </div>
+        
+        <div class="tech-menu">
+            <h2>[科技变异菜单]</h2>
+            <ul id="mutation-list">
+                </ul>
+        </div>
+    </div>
+    <script src="game_ui.js"></script>
 </body>
 </html>
