@@ -1,94 +1,44 @@
-body {
-    font-family: Arial, sans-serif;
-    background-color: #2c3e50; /* 深色背景 */
-    color: #ecf0f1; /* 浅色文本 */
-    padding: 20px;
-}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ascent Defense - 策略点击版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header-status">
+            核心 HP: <span id="coreHP">10/10</span> | GOLD: <span id="gold">450</span> | TP: <span id="tp">3</span> | 波次: <span id="wave">12</span>
+        </div>
 
-.container {
-    max-width: 900px;
-    margin: 0 auto;
-    background-color: #34495e;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-}
+        <div class="map-deployment">
+            <h2>[地图部署 (4x4)]</h2>
+            <div id="grid-container">
+            </div>
+        </div>
 
-h2 {
-    color: #f1c40f; 
-    border-bottom: 1px solid #4a637a;
-    padding-bottom: 5px;
-}
-
-.header-status {
-    background-color: #e74c3c; /* 红色突出显示 */
-    padding: 10px;
-    margin-bottom: 20px;
-    border-radius: 4px;
-    font-weight: bold;
-}
-
-/* 网格布局 */
-#grid-container {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 10px;
-}
-
-.grid-cell {
-    background-color: #2c3e50;
-    border: 1px solid #7f8c8d;
-    padding: 15px 5px;
-    text-align: center;
-    border-radius: 4px;
-    min-height: 50px;
-    cursor: pointer; 
-    transition: background-color 0.1s;
-}
-
-.grid-cell:hover {
-    background-color: #586f87; /* 悬停反馈 */
-}
-
-/* 特殊单元格样式 */
-.special-cell { 
-    background-color: #c0392b !important; 
-    color: white;
-    cursor: default;
-}
-.tower-cell {
-    background-color: #27ae60 !important;
-}
-
-/* 操作和按钮样式 */
-.action-menu, .tech-menu {
-    margin-top: 30px;
-    padding: 15px;
-    background-color: #2980b9;
-    border-radius: 4px;
-}
-
-.next-wave-button {
-    margin-top: 15px;
-    padding: 10px 20px;
-    background-color: #2ecc71;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1.1em;
-}
-
-.mutation-button {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 10px;
-    margin-bottom: 8px;
-    background-color: #9b59b6; /* 紫色 */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
+        <div class="action-menu">
+            <h2>[当前操作：信息和指令]</h2>
+            <div id="action-prompt">
+                请选择一个地图坐标（A1-D4）开始操作。
+            </div>
+            <div class="tower-list">
+                <h3>[可建造塔列表]</h3>
+                <p><strong>T1 - 基础机枪塔:</strong> 费用: <span id="T1-cost">100</span> GOLD (Dmg: 10, Rng: 2)</p>
+                <p><strong>T2 - 脉冲特斯拉:</strong> 费用: <span id="T2-cost">250</span> GOLD (Dmg: 25, Rng: 3)</p>
+            </div>
+            
+            <button onclick="window.continueWave()" class="next-wave-button">继续下一波战斗 (回合结算)</button>
+        </div>
+        
+        <div class="tech-menu">
+            <h2>[科技变异菜单]</h2>
+            <div id="mutation-choice-area">
+            </div>
+        </div>
+    </div>
+    
+    <script src="game_ui.js"></script>
+</body>
+</html>
