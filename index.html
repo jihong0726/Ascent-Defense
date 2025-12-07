@@ -3,83 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unity 核心游戏系统 - CoreGameSystem</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 40px;
-            background-color: #f6f8fa;
-            color: #24292e;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: #ffffff;
-            padding: 30px;
-            border-radius: 6px;
-            box-shadow: 0 3px 10px rgba(27, 31, 35, 0.1);
-        }
-        h1 {
-            color: #0366d6;
-            border-bottom: 2px solid #eaecef;
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-        h2 {
-            color: #24292e;
-        }
-        p {
-            margin-bottom: 15px;
-        }
-        code {
-            background-color: #f0f3f6;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
-        }
-        .file-link {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 15px;
-            background-color: #28a745;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-weight: bold;
-        }
-        .file-link:hover {
-            background-color: #218838;
-        }
-    </style>
+    <title>简单的 Canvas 游戏</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🎮 Unity C\# 核心游戏系统</h1>
-        <p>欢迎来到我的 Unity 项目代码仓库。这里展示了项目中的核心游戏逻辑脚本。</p>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-        <h2>文件概览</h2>
-        <p>
-            核心游戏逻辑位于 <code>CoreGameSystem.cs</code> 文件中。该脚本主要负责管理游戏中的全局状态、游戏循环、事件处理以及变异和持续伤害的实现。
-        </p>
-
-        <h2>主要功能</h2>
-        <ul>
-            <li>**游戏状态管理:** 控制游戏开始、暂停和结束。</li>
-            <li>**事件系统:** 使用 C\# 事件和委托进行松耦合通信。</li>
-            <li>**基础变异实现:** 处理单位属性的临时或永久修改。</li>
-        </ul>
-
-        <p>
-            点击下方链接查看完整的 C\# 脚本代码：
-        </p>
-
-        <a href="CoreGameSystem.cs" class="file-link">查看 CoreGameSystem.cs 代码</a>
-        
-        <p style="margin-top: 30px; font-size: 0.9em; color: #6a737d;">
-            此页面由 GitHub Pages 自动生成和托管。
-        </p>
-    </div>
+    <script src="game.js"></script>
 </body>
 </html>
