@@ -2,114 +2,48 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>系统塔防：极简模式</title>
-    <style>
-        /* 基础样式重置 */
-        body {
-            font-family: monospace, sans-serif;
-            background-color: #f4f4f4;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            border: 1px solid #ccc;
-            background-color: white;
-        }
-        hr {
-            border: 0;
-            border-top: 1px solid #eee;
-            margin: 10px 0;
-        }
-        button {
-            padding: 8px;
-            margin: 4px 0;
-            width: 100%;
-            cursor: pointer;
-            border: 1px solid #aaa;
-            background-color: #ddd;
-            text-align: left;
-        }
-        button:hover {
-            background-color: #ccc;
-        }
-    </style>
-</head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ascent Defense UI</title>
+    </head>
 <body>
-    <div class="container">
 
-        <div style="background-color: #222; color: white; padding: 10px; font-weight: bold;">
-            <span>核心 HP: <span style="color: red;">10/10</span></span>
-            &nbsp;|&nbsp;
-            <span>GOLD: <span style="color: gold;">450</span></span>
-            &nbsp;|&nbsp;
-            <span>TP: <span style="color: #00ffff;">3</span></span>
-            <br>
-            波次: 12 (重甲/精英) &nbsp;|&nbsp; 敌人进度: 60%
-        </div>
+<div style="padding: 20px; background-color: #121212; color: #f0f0f0; font-family: 'Consolas', 'Courier New', monospace; border: 4px solid #00c762; border-radius: 5px; max-width: 600px; margin: 20px auto;">
+    
+    <h2 style="margin-top: 0; color: #00ff99; text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;">
+        [ ASCENT DEFENSE: 垂直井道部署概览 ]
+    </h2>
+    
+    <div style="background-color: #1e1e1e; padding: 15px; border: 1px solid #444; margin-bottom: 15px; box-shadow: 0 0 10px rgba(0, 255, 153, 0.1);">
+        <div style="color: #666; text-align: center; margin-bottom: 8px;">--- ⬆️ 敌人来袭路径 (纵深) ⬆️ ---</div>
         
-        <hr>
-
-        <div style="padding: 10px;">
-            <div style="font-weight: bold; margin-bottom: 5px;">[地图部署 (4x4)]</div>
-            <pre style="background-color: #e8e8e8; padding: 10px; border: 1px solid #ddd; line-height: 1.5;">
-入口 >>> A4 [空] B4 [空] C4 [空] D4 [出口]
-
-A3 [<span style="color: #00aaff;">Tesla/Lv1</span>] B3 [<span style="color: #ffaa00;">Flame/Lv2</span>] C3 [空] D3 [核心]
-
-A2 [空] B2 [<span style="color: #00ff00;">Resonance/Lv1</span>] C2 [空] D2 [空]
-
-A1 [<span style="color: #ff00ff;">Cryo/Lv3</span>] B1 [空] C1 [空] D1 [空]
-            </pre>
-
-            <div style="margin-top: 10px;">
-                <span style="font-weight: bold;">当前行动/指令输入:</span>
-                <input type="text" placeholder="例如: BUILD C2 T1 或 CHOOSE 2" style="width: 98%; padding: 5px; margin-top: 5px;">
-            </div>
-        </div>
-
-        <hr>
-
-        <div style="padding: 10px;">
-            <div style="font-weight: bold; color: darkblue; margin-bottom: 5px;">[指令菜单]</div>
-            <button>1. 建造/升级/出售 防御塔 (输入坐标)</button>
-            <button style="background-color: #f9e2e2;">2. <span style="font-weight: bold; color: red;">科技变异选择 (必选)</span></button>
-            <button>3. 查看当前所有塔变异列表</button>
-            <button style="background-color: #d8f1d8;">4. <span style="font-weight: bold;">继续下一波战斗</span></button>
-        </div>
-
-        <div style="padding: 10px; border: 2px solid #4CAF50; background-color: #eaf8e9; margin-top: 10px;">
-            <div style="font-weight: bold; color: #3c763d; margin-bottom: 8px;">--- 🧬 科技变异 - 三选一 ---</div>
-            
-            <div style="margin-bottom: 5px;">
-                <input type="radio" name="tech_choice" id="c1" value="1">
-                <label for="c1">
-                    <span style="font-weight: bold;">1. 破甲弹药:</span> 所有塔 $10\%$ 几率移除 $30\%$ 物理护甲。
-                </label>
-            </div>
-            
-            <div style="margin-bottom: 5px;">
-                <input type="radio" name="tech_choice" id="c2" value="2">
-                <label for="c2">
-                    <span style="font-weight: bold;">2. 核心加固:</span> 核心生命值上限永久 +2 点。
-                </label>
-            </div>
-            
-            <div style="margin-bottom: 10px;">
-                <input type="radio" name="tech_choice" id="c3" value="3">
-                <label for="c3">
-                    <span style="font-weight: bold;">3. 光环超载:</span> T5 能量共振塔的攻速增益效果提高至 $20\%$。
-                </label>
-            </div>
-
-            <button style="background-color: orange; color: white; border: none; width: auto; padding: 8px 15px;">
-                确认选择
-            </button>
-            <span style="color: gray; margin-left: 10px;">(消耗 3 TP 重选)</span>
-        </div>
-
+        <pre style="line-height: 1.6; margin: 0; padding: 0;">
+|  A1 [<span style="color: #ffaa00;">火焰/Lv2</span>] |    <span style="color: #404040;">.........................</span>    |  D1 [空]  |
+| (火力压制) |                                 |           |
+|  A2 [空]    |    <span style="color: #e6b800; font-weight: bold;">>>> WAVE 3 进度: 50% >>></span>    |  D2 [<span style="color: #00aaff;">Tesla/Lv1</span>] |
+|            |                                 | (单体锁定) |
+|  A3 [<span style="color: #ff00ff;">Cryo/Lv1</span>] |                                 |  D3 [空]  |
+| (范围减速) |                                 |           |
+|  A4 [空]    |    <span style="color: #404040;">.........................</span>    |  D4 [空]  |
+        </pre>
+        
+        <div style="color: #666; text-align: center; margin-top: 8px;">--- ⬇️ 井道底端 (即将接触) ⬇️ ---</div>
     </div>
+    
+    <div style="background-color: #333; padding: 10px; border: 2px solid #ff4d4d; border-radius: 3px;">
+        <h3 style="margin-top: 0; color: #ffeb3b; text-align: center;">🛡️ 核心轿厢区域 (近战部署) 🛡️</h3>
+        <pre style="margin: 0; padding: 0; text-align: center; line-height: 1.5;">
+         B1 [<span style="color: #00ff00;">共振/Lv3</span>]  |  <span style="color: red; font-weight: bold; font-size: 1.2em; text-shadow: 0 0 5px red;">CORE HP: 95/100</span>  |  C1 [空]
+        </pre>
+        <p style="text-align: center; color: #aaa; margin-top: 5px; font-size: 0.9em;">
+            * B1: 核心增益位点 | C1: 紧急防御位点
+        </p>
+    </div>
+    
+    <div style="margin-top: 15px; border-top: 1px dashed #444; padding-top: 10px;">
+        <p style="color: #00ff99; font-weight: bold;">💰 资源概况:</p>
+        <p style="margin: 0;">电能 (Energy): <span style="color: #ffeb3b;">1500</span> | 零件 (Parts): <span style="color: #ff9900;">250</span></p>
+    </div>
+</div>
+
 </body>
 </html>
