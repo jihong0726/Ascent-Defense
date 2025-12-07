@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ascent Defense - 策略原型</title>
+    <title>Ascent Defense - 策略点击版</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,21 +17,25 @@
             <div id="grid-container">
                 </div>
         </div>
-<div class="tower-list">
-            <h2>[可建造塔列表]</h2>
-            <p><strong>T1 - 基础机枪塔:</strong> 费用: 100 GOLD</p>
-            <p><strong>T2 - 脉冲特斯拉:</strong> 费用: 250 GOLD</p>
-        </div>
-        <div class="command-section">
-            <label for="command-input">当前行动/指令输入:</label>
-            <input type="text" id="command-input" placeholder="例如: BUILD C2 T1 或 CHOOSE 2">
-            <button onclick="processCommand()">执行</button>
+
+        <div class="action-menu">
+            <h2>[当前操作：信息和指令]</h2>
+            <div id="action-prompt">
+                请选择一个地图坐标（A1-D4）开始操作。
+            </div>
+            <div class="tower-list">
+                <h3>[可建造塔列表]</h3>
+                <p><strong>T1 - 基础机枪塔:</strong> 费用: <span id="T1-cost">100</span> GOLD (Dmg: 10, Rng: 2)</p>
+                <p><strong>T2 - 脉冲特斯拉:</strong> 费用: <span id="T2-cost">250</span> GOLD (Dmg: 25, Rng: 3)</p>
+            </div>
+            
+            <button onclick="window.continueWave()" class="next-wave-button">继续下一波战斗 (回合结算)</button>
         </div>
         
         <div class="tech-menu">
             <h2>[科技变异菜单]</h2>
-            <ul id="mutation-list">
-                </ul>
+            <div id="mutation-choice-area">
+                </div>
         </div>
     </div>
     <script src="game_ui.js"></script>
