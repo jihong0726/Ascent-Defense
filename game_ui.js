@@ -1,6 +1,5 @@
 // --- 游戏数据和状态 ---
 const TOWER_PRICES = {
-    // 增加攻击属性
     'T1': { name: '基础机枪塔', cost: 100, level: 1, damage: 10, range: 2 }, 
     'T2': { name: '脉冲特斯拉', cost: 250, level: 1, damage: 25, range: 3 },
 };
@@ -11,23 +10,19 @@ const gameState = {
     gold: 450,
     tp: 3,
     wave: 12,
-    // 敌人列表
-    enemies: [], // 初始为空，点击下一波时生成
-    // 地图数据：储存塔的完整信息
+    enemies: [], 
     map: {
         A4: { content: '入口 >>>', type: 'special' }, B4: { content: '空', type: 'empty' }, C4: { content: '空', type: 'empty' }, D4: { content: '出口', type: 'special' },
         A3: { content: '空', type: 'empty' }, B3: { content: '空', type: 'empty' }, C3: { content: '核心', type: 'special' }, D3: { content: '空', type: 'empty' },
         A2: { content: '空', type: 'empty' }, B2: { content: '空', type: 'empty' }, C2: { content: '空', type: 'empty' }, D2: { content: '空', type: 'empty' },
         A1: { content: '空', type: 'empty' }, B1: { content: '空', type: 'empty' }, C1: { content: '空', type: 'empty' }, D1: { content: '空', type: 'empty' },
     },
-    // 变异列表
     mutations: [
         { id: 1, text: '破甲弹药: 所有塔 10% 几率移除 30% 物理护甲。', action: 'ARMOR_PIERCING' },
         { id: 2, text: '核心加固: 核心生命值上限永久 +2 点。', action: 'CORE_HP_BOOST' },
         { id: 3, text: '光环超载: T5 能量共振塔的攻速增益效果提高至 20%。', action: 'AURA_BOOST' }
     ],
-    // 游戏状态机
-    currentMode: 'DEPLOYMENT' // DEPLOYMENT, BATTLE_SIM
+    currentMode: 'DEPLOYMENT'
 };
 
 // --- 渲染函数 ---
@@ -43,20 +38,27 @@ function renderMap() {
     const gridContainer = document.getElementById('grid-container');
     gridContainer.innerHTML = '';
     
-    // 网格键顺序 (从 D4 到 A1)
+    // 确保顺序是从上到下，从左到右 (A4, B4, C4, D4, ...)
     const mapKeys = ['A4', 'B4', 'C4', 'D4', 'A3', 'B3', 'C3', 'D3', 'A2', 'B2', 'C2', 'D2', 'A1', 'B1', 'C1', 'D1'];
     
     mapKeys.forEach(coord => {
         const cell = document.createElement('div');
         cell.className = 'grid-cell';
-        cell.dataset.coord = coord; // 存储坐标数据
-        cell.onclick = () => handleGridClick(coord); // 绑定点击事件
+        cell.dataset.coord = coord; 
+        
+        // **修复：确保点击事件绑定到全局函数**
+        if (gameState.map[coord].type !== 'special') {
+             cell.onclick = () => window.handleGridClick(coord); 
+        } else {
+             // 特殊单元格只显示信息，不绑定操作
+             cell.onclick = () => updateActionPrompt(`信息：${coord} 是 ${gameState.map[coord].content}，不能在此操作。`);
+        }
+
 
         const cellData = gameState.map[coord];
         let content = cellData.content;
         cell.innerHTML = `<strong>${coord}</strong><br>${content}`;
         
-        // 应用特殊样式
         if (cellData.type === 'special') {
             cell.classList.add('special-cell');
         } else if (cellData.type === 'tower') {
@@ -75,7 +77,7 @@ function renderMutations() {
         const button = document.createElement('button');
         button.className = 'mutation-button';
         button.innerHTML = `(${mutation.id}) ${mutation.text}`;
-        button.onclick = () => chooseMutation(mutation.id);
+        button.onclick = () => window.chooseMutation(mutation.id); // 绑定到全局
         choiceArea.appendChild(button);
     });
 }
@@ -84,9 +86,9 @@ function updateActionPrompt(message) {
     document.getElementById('action-prompt').innerHTML = message;
 }
 
-// --- 交互/点击逻辑 ---
+// --- 交互/点击逻辑 (FIXED: 声明为 window. 确保全局可访问) ---
 
-function handleGridClick(coord) {
+window.handleGridClick = function(coord) {
     const cellData = gameState.map[coord];
 
     if (cellData.type === 'special') {
@@ -121,8 +123,8 @@ function showBuildButtons(coord) {
 function showUpgradeSellButtons(coord) {
     const promptArea = document.getElementById('action-prompt');
     const towerId = gameState.map[coord].towerId;
-    const upgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6); // 简化升级费用
-    const sellValue = Math.floor(TOWER_PRICES[towerId].cost * 0.7); // 简化售价
+    const upgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6); 
+    const sellValue = Math.floor(TOWER_PRICES[towerId].cost * 0.7); 
     
     const buttonsHTML = `
         <button onclick="window.upgradeTower('${coord}')" style="margin-right: 10px;">升级 (费用: ${upgradeCost} GOLD)</button>
@@ -133,7 +135,7 @@ function showUpgradeSellButtons(coord) {
 }
 
 
-// --- 核心动作函数 ---
+// --- 核心动作函数 (都使用 window. 确保 HTML 内联事件能调用) ---
 
 window.buildTower = function(coord, towerId) {
     const towerInfo = TOWER_PRICES[towerId];
@@ -143,17 +145,14 @@ window.buildTower = function(coord, towerId) {
         return;
     }
 
-    // 更新状态
     gameState.gold -= towerInfo.cost;
     gameState.map[coord] = {
         content: `${towerInfo.name}/Lv1`,
         type: 'tower',
         towerId: towerId,
         level: 1,
-        // 实际游戏中，这里会保存塔的伤害、射速等具体属性
     };
 
-    // 渲染更新
     renderStatus();
     renderMap();
     updateActionPrompt(`成功建造 ${towerInfo.name} 在 ${coord}。`);
@@ -162,7 +161,7 @@ window.buildTower = function(coord, towerId) {
 window.upgradeTower = function(coord) {
     const cellData = gameState.map[coord];
     const towerId = cellData.towerId;
-    const upgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6);
+    const upgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6 * cellData.level); // 升级费用随等级增加
 
     if (gameState.gold < upgradeCost) {
         alert(`错误：升级需要 ${upgradeCost} GOLD，资源不足。`);
@@ -181,9 +180,11 @@ window.upgradeTower = function(coord) {
 window.sellTower = function(coord) {
     const cellData = gameState.map[coord];
     const towerId = cellData.towerId;
-    const sellValue = Math.floor(TOWER_PRICES[towerId].cost * 0.7);
+    // 假设售价为基础成本 * 0.7 + (升级成本 * 0.5 * (等级-1))
+    const baseSell = Math.floor(TOWER_PRICES[towerId].cost * 0.7);
+    const totalUpgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6) * (cellData.level - 1);
+    const sellValue = baseSell + Math.floor(totalUpgradeCost * 0.5);
 
-    // 归还资源
     gameState.gold += sellValue;
     gameState.map[coord] = { content: '空', type: 'empty' };
 
@@ -203,7 +204,6 @@ window.chooseMutation = function(id) {
     }
     gameState.tp -= 1;
 
-    // 变异逻辑应用
     if (mutation.action === 'CORE_HP_BOOST') {
         gameState.maxHP += 2;
         gameState.coreHP = gameState.maxHP;
@@ -213,7 +213,7 @@ window.chooseMutation = function(id) {
     }
     
     renderStatus();
-    // 实际游戏中，这里会重新生成变异列表
+    // 移除已选择的变异，并重新渲染变异菜单 (此处简化为只更新状态)
 }
 
 window.resetAction = function() {
@@ -230,19 +230,22 @@ window.continueWave = function() {
 
     if (gameState.enemies.length === 0) {
         // 如果没有敌人，进入下一波 (生成敌人)
-        alert(`第 ${gameState.wave} 波敌人已被消灭。正在生成下一波敌人...`);
         gameState.wave += 1;
         
-        // 简单生成敌人，从 D4 开始
-        gameState.enemies.push(
-            { id: Date.now() + 1, hp: 60 + gameState.wave * 5, maxHp: 60, position: 'D4', speed: 1, reward: 12 },
-            { id: Date.now() + 2, hp: 40 + gameState.wave * 5, maxHp: 40, position: 'D4', speed: 1, reward: 8 }
-        );
+        // 动态生成敌人：波次越高，敌人越多/血量越高
+        const enemyCount = 2 + Math.floor(gameState.wave / 5);
+        for(let i = 0; i < enemyCount; i++) {
+             gameState.enemies.push(
+                { id: Date.now() + i, hp: 50 + gameState.wave * 10, maxHp: 50 + gameState.wave * 10, position: 'D4', speed: 1, reward: 12 + gameState.wave }
+            );
+        }
+       
         updateActionPrompt(`第 ${gameState.wave} 波敌人已生成 (${gameState.enemies.length} 个)。点击 [继续下一波战斗] 开始结算。`);
         renderStatus();
         return;
     }
 
+    // 真正的回合结算开始
     alert(`开始回合结算 (${gameState.enemies.length} 敌人剩余)...`);
     
     // 1. 塔攻击阶段
@@ -252,14 +255,19 @@ window.continueWave = function() {
     processEnemyMovement();
     
     // 3. 结算和渲染
-    if (gameState.enemies.length > 0 && gameState.coreHP > 0) {
-        updateActionPrompt(`回合结算完成。剩余 ${gameState.enemies.length} 个敌人。请继续。`);
-    } else if (gameState.enemies.length === 0 && gameState.coreHP > 0) {
-        updateActionPrompt(`所有敌人已被消灭！请部署或升级。`);
-    } else if (gameState.coreHP <= 0) {
-        // 游戏结束已在开头处理
+    if (gameState.coreHP <= 0) {
+        alert("核心已被摧毁。游戏结束！");
         return;
     }
+
+    if (gameState.enemies.length > 0) {
+        updateActionPrompt(`回合结算完成。剩余 ${gameState.enemies.length} 个敌人。请继续。`);
+    } else {
+        // 敌人清空，回合结束，等待玩家部署
+        updateActionPrompt(`所有敌人已被消灭！获得 1 TP。请部署或升级，然后点击下一波。`);
+        gameState.tp += 1;
+    }
+    
     renderStatus();
     renderMap();
 }
@@ -268,21 +276,20 @@ function processTowerAttacks() {
     // 遍历地图上的所有塔
     Object.keys(gameState.map).forEach(coord => {
         const cellData = gameState.map[coord];
-        if (cellData.type === 'tower') {
+        if (cellData.type === 'tower' && gameState.enemies.length > 0) {
             const towerInfo = TOWER_PRICES[cellData.towerId];
             
             // 简化：总是攻击第一个敌人
             let target = gameState.enemies[0];
             
             if (target) {
-                // 伤害计算：基础伤害 x 等级
                 const damage = towerInfo.damage * cellData.level;
                 target.hp -= damage;
                 
                 if (target.hp <= 0) {
-                    gameState.gold += target.reward; // 获得奖励
-                    gameState.enemies.splice(0, 1); // 移除敌人
-                    updateActionPrompt(`塔在 ${coord} 处摧毁了敌人！获得 ${target.reward} GOLD。`);
+                    gameState.gold += target.reward; 
+                    gameState.enemies.splice(0, 1); 
+                    // 实际中这里会更新敌人模型，本次简化为只更新状态和金钱
                 }
             }
         }
@@ -290,49 +297,46 @@ function processTowerAttacks() {
 }
 
 function processEnemyMovement() {
-    // 简单的路径模拟：D4 -> C4 -> B4 -> A4 -> A3 -> C3(核心)
+    // 路径模拟 (入口 D4, 出口 C3 核心)
     const simplifiedPath = {
-        'D4': 'C4', 'C4': 'B4', 'B4': 'A4', 'A4': 'A3', 'A3': 'C3',
+        'D4': 'C4', 'C4': 'B4', 'B4': 'A4', 
+        'A4': 'A3', 'A3': 'B3', 'B3': 'C3', // 走向核心C3
         'D3': 'C3', 'D2': 'C3', 'D1': 'C3', 
+        'C1': 'C2', 'C2': 'C3', 
+        // 简化的路径，确保所有点最终都能走向核心 C3
     };
 
     // 敌人移动和核心伤害
     gameState.enemies = gameState.enemies.filter(enemy => {
         if (enemy.position === 'C3') {
-             // 敌人到达核心，造成伤害
+            // 到达核心，造成伤害
             gameState.coreHP -= 1; 
             updateActionPrompt(`敌人到达核心！核心 HP 减 1。`);
             return false; // 敌人消失
         }
         
-        // 移动到下一格 (简化：如果下一格是C3就直接移除)
         const nextPos = simplifiedPath[enemy.position];
         if (nextPos) {
             enemy.position = nextPos;
             return true;
         }
 
-        // 如果敌人路径走到尽头，也造成伤害
-        if (!nextPos) {
-            gameState.coreHP -= 1; 
-            updateActionPrompt(`敌人路径出错，强制伤害核心。`);
-            return false;
-        }
-
-        return true;
+        // 如果敌人路径走到尽头，但不是核心 (理论上不应发生)
+        gameState.coreHP -= 1; 
+        updateActionPrompt(`警告：敌人路径错误，强制伤害核心。`);
+        return false;
     });
 }
 
 // --- 游戏启动 ---
 document.addEventListener('DOMContentLoaded', () => {
-    // 确保塔的成本显示正确
+    // 初始化塔的成本显示
     document.getElementById('T1-cost').textContent = TOWER_PRICES.T1.cost;
     document.getElementById('T2-cost').textContent = TOWER_PRICES.T2.cost;
     
     renderStatus();
     renderMap();
     renderMutations();
-    // 初始提示
     window.resetAction();
-    console.log("Ascent Defense 策略原型已启动。请点击 [继续下一波战斗] 生成第一波敌人。");
+    console.log("Ascent Defense 策略原型已启动。");
 });
