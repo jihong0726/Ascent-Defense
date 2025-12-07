@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>系统塔防：极简模式</title>
+    <style>
+        /* 基础样式重置 */
+        body {
+            font-family: monospace, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            border: 1px solid #ccc;
+            background-color: white;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #eee;
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px;
+            margin: 4px 0;
+            width: 100%;
+            cursor: pointer;
+            border: 1px solid #aaa;
+            background-color: #ddd;
+            text-align: left;
+        }
+        button:hover {
+            background-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <div style="background-color: #222; color: white; padding: 10px; font-weight: bold;">
+            <span>核心 HP: <span style="color: red;">10/10</span></span>
+            &nbsp;|&nbsp;
+            <span>GOLD: <span style="color: gold;">450</span></span>
+            &nbsp;|&nbsp;
+            <span>TP: <span style="color: #00ffff;">3</span></span>
+            <br>
+            波次: 12 (重甲/精英) &nbsp;|&nbsp; 敌人进度: 60%
+        </div>
+        
+        <hr>
+
+        <div style="padding: 10px;">
+            <div style="font-weight: bold; margin-bottom: 5px;">[地图部署 (4x4)]</div>
+            <pre style="background-color: #e8e8e8; padding: 10px; border: 1px solid #ddd; line-height: 1.5;">
+入口 >>> A4 [空] B4 [空] C4 [空] D4 [出口]
+
+A3 [<span style="color: #00aaff;">Tesla/Lv1</span>] B3 [<span style="color: #ffaa00;">Flame/Lv2</span>] C3 [空] D3 [核心]
+
+A2 [空] B2 [<span style="color: #00ff00;">Resonance/Lv1</span>] C2 [空] D2 [空]
+
+A1 [<span style="color: #ff00ff;">Cryo/Lv3</span>] B1 [空] C1 [空] D1 [空]
+            </pre>
+
+            <div style="margin-top: 10px;">
+                <span style="font-weight: bold;">当前行动/指令输入:</span>
+                <input type="text" placeholder="例如: BUILD C2 T1 或 CHOOSE 2" style="width: 98%; padding: 5px; margin-top: 5px;">
+            </div>
+        </div>
+
+        <hr>
+
+        <div style="padding: 10px;">
+            <div style="font-weight: bold; color: darkblue; margin-bottom: 5px;">[指令菜单]</div>
+            <button>1. 建造/升级/出售 防御塔 (输入坐标)</button>
+            <button style="background-color: #f9e2e2;">2. <span style="font-weight: bold; color: red;">科技变异选择 (必选)</span></button>
+            <button>3. 查看当前所有塔变异列表</button>
+            <button style="background-color: #d8f1d8;">4. <span style="font-weight: bold;">继续下一波战斗</span></button>
+        </div>
+
+        <div style="padding: 10px; border: 2px solid #4CAF50; background-color: #eaf8e9; margin-top: 10px;">
+            <div style="font-weight: bold; color: #3c763d; margin-bottom: 8px;">--- 🧬 科技变异 - 三选一 ---</div>
+            
+            <div style="margin-bottom: 5px;">
+                <input type="radio" name="tech_choice" id="c1" value="1">
+                <label for="c1">
+                    <span style="font-weight: bold;">1. 破甲弹药:</span> 所有塔 $10\%$ 几率移除 $30\%$ 物理护甲。
+                </label>
+            </div>
+            
+            <div style="margin-bottom: 5px;">
+                <input type="radio" name="tech_choice" id="c2" value="2">
+                <label for="c2">
+                    <span style="font-weight: bold;">2. 核心加固:</span> 核心生命值上限永久 +2 点。
+                </label>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <input type="radio" name="tech_choice" id="c3" value="3">
+                <label for="c3">
+                    <span style="font-weight: bold;">3. 光环超载:</span> T5 能量共振塔的攻速增益效果提高至 $20\%$。
+                </label>
+            </div>
+
+            <button style="background-color: orange; color: white; border: none; width: auto; padding: 8px 15px;">
+                确认选择
+            </button>
+            <span style="color: gray; margin-left: 10px;">(消耗 3 TP 重选)</span>
+        </div>
+
+    </div>
+</body>
+</html>
