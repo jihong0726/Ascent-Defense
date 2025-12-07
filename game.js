@@ -1,197 +1,117 @@
-// 获取 Canvas 元素和 2D 绘图上下文
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-// --- 游戏状态变量 ---
-let player = {
-    x: canvas.width / 2,
-    y: canvas.height - 30,
-    width: 60,
-    height: 10,
-    color: '#007BFF',
-    speed: 5
+// --- 游戏数据状态 ---
+const gameState = {
+    coreHP: 10,
+    maxHP: 10,
+    gold: 450,
+    tp: 3,
+    wave: 12,
+    map: {
+        A4: '入口 >>>', B4: '空', C4: '空', D4: '出口',
+        A3: 'Tesla/Lv1', B3: 'Flame/Lv2', C3: '核心', D3: '空',
+        A2: '空', B2: 'Resonance/Lv2', C2: '空', D2: '空',
+        A1: 'Cryo/Lv3', B1: '空', C1: '空', D1: '空',
+    },
+    mutations: [
+        '1. 破甲弹药: 所有塔 $10\\%$ 几率移除 $30\\%$ 物理护甲。',
+        '2. 核心加固: 核心生命值上限永久 +2 点。',
+        '3. 光环超载: T5 能量共振塔的攻速增益效果提高至 $20\\%$。'
+    ]
 };
 
-let bullets = [];
-let enemies = [];
-let score = 0;
-let keys = {}; // 用于存储当前按下的键
+// --- 渲染函数 ---
 
-const ENEMY_SPAWN_RATE = 60; // 每 60 帧生成一个敌人
-let spawnCounter = 0;
-
-// --- 键盘输入处理 ---
-document.addEventListener('keydown', (e) => {
-    keys[e.key] = true;
-    // 按下空格键立即尝试发射子弹 (如果允许)
-    if (e.key === ' ') {
-        fireBullet();
-    }
-});
-
-document.addEventListener('keyup', (e) => {
-    keys[e.key] = false;
-});
-
-// --- 游戏对象行为 ---
-
-function fireBullet() {
-    // 限制发射速度
-    if (bullets.length < 5) { 
-        bullets.push({
-            x: player.x,
-            y: player.y - player.height / 2,
-            radius: 3,
-            color: 'yellow',
-            speed: 7
-        });
-    }
+function renderStatus() {
+    document.getElementById('coreHP').textContent = `${gameState.coreHP}/${gameState.maxHP}`;
+    document.getElementById('gold').textContent = gameState.gold;
+    document.getElementById('tp').textContent = gameState.tp;
+    document.getElementById('wave').textContent = gameState.wave;
 }
 
-function spawnEnemy() {
-    enemies.push({
-        x: Math.random() * (canvas.width - 40) + 20, // 随机生成 X 坐标
-        y: 0,
-        width: 30,
-        height: 20,
-        color: 'red',
-        speed: Math.random() * 1.5 + 0.5 // 随机速度
-    });
-}
-
-// --- 游戏更新逻辑 ---
-
-function updatePlayer() {
-    // 处理左右移动
-    if (keys['ArrowLeft'] || keys['a']) {
-        player.x -= player.speed;
-    }
-    if (keys['ArrowRight'] || keys['d']) {
-        player.x += player.speed;
-    }
-
-    // 边界检查
-    if (player.x < player.width / 2) player.x = player.width / 2;
-    if (player.x > canvas.width - player.width / 2) player.x = canvas.width - player.width / 2;
-}
-
-function updateBullets() {
-    // 移动子弹
-    bullets.forEach(bullet => {
-        bullet.y -= bullet.speed;
-    });
-
-    // 移除移出屏幕的子弹
-    bullets = bullets.filter(bullet => bullet.y > 0);
-}
-
-function updateEnemies() {
-    // 移动敌人
-    enemies.forEach(enemy => {
-        enemy.y += enemy.speed;
-    });
-
-    // 移除移出屏幕的敌人 (如果需要游戏结束逻辑，这里可以处理)
-    enemies = enemies.filter(enemy => enemy.y < canvas.height);
-
-    // 敌人生成
-    spawnCounter++;
-    if (spawnCounter >= ENEMY_SPAWN_RATE) {
-        spawnEnemy();
-        spawnCounter = 0;
-    }
-}
-
-function checkCollisions() {
-    // 新的子弹列表 (未命中)
-    let newBullets = [];
-    // 新的敌人列表 (未被击中)
-    let newEnemies = [];
-
-    enemies.forEach(enemy => {
-        let hit = false;
+function renderMap() {
+    const gridContainer = document.getElementById('grid-container');
+    gridContainer.innerHTML = '';
+    
+    // 按照 A4, B4, C4, D4... 的顺序渲染 (从上到下，从左到右)
+    const mapKeys = ['A4', 'B4', 'C4', 'D4', 'A3', 'B3', 'C3', 'D3', 'A2', 'B2', 'C2', 'D2', 'A1', 'B1', 'C1', 'D1'];
+    
+    mapKeys.forEach(coord => {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
         
-        bullets.forEach(bullet => {
-            // 简单的矩形/圆形碰撞检测
-            if (
-                bullet.x > enemy.x - enemy.width / 2 &&
-                bullet.x < enemy.x + enemy.width / 2 &&
-                bullet.y > enemy.y - enemy.height / 2 &&
-                bullet.y < enemy.y + enemy.height / 2
-            ) {
-                // 子弹命中敌人
-                hit = true;
-                score += 10; // 增加分数
-                // 命中子弹不会被添加到 newBullets
-            } else {
-                // 未命中的子弹保留
-                newBullets.push(bullet);
-            }
-        });
+        let content = gameState.map[coord];
+        let color = '';
 
-        // 如果敌人未被命中，则保留
-        if (!hit) {
-            newEnemies.push(enemy);
+        if (content.includes('核心')) {
+            color = 'background-color: #c0392b;'; // 核心红色
+        } else if (content.includes('Lv')) {
+            color = 'background-color: #27ae60;'; // 有塔绿色
         }
-    });
 
-    bullets = newBullets;
-    enemies = newEnemies;
-}
-
-// --- 绘制函数 ---
-
-function drawPlayer() {
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x - player.width / 2, player.y - player.height / 2, player.width, player.height);
-}
-
-function drawBullets() {
-    bullets.forEach(bullet => {
-        ctx.beginPath();
-        ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-        ctx.fillStyle = bullet.color;
-        ctx.fill();
-        ctx.closePath();
+        cell.style.cssText = color;
+        cell.innerHTML = `<strong>${coord}</strong><br>${content}`;
+        gridContainer.appendChild(cell);
     });
 }
 
-function drawEnemies() {
-    enemies.forEach(enemy => {
-        ctx.fillStyle = enemy.color;
-        ctx.fillRect(enemy.x - enemy.width / 2, enemy.y - enemy.height / 2, enemy.width, enemy.height);
+function renderMutations() {
+    const list = document.getElementById('mutation-list');
+    list.innerHTML = '';
+    
+    gameState.mutations.forEach((mutationText, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="mutation-option">${mutationText}</span>`;
+        list.appendChild(li);
     });
 }
 
-function drawScore() {
-    ctx.font = '24px Arial';
-    ctx.fillStyle = 'white';
-    ctx.fillText('得分: ' + score, 10, 30);
+// --- 指令处理逻辑 ---
+
+window.processCommand = function() {
+    const inputElement = document.getElementById('command-input');
+    const command = inputElement.value.toUpperCase().trim();
+    inputElement.value = ''; // 清空输入
+
+    const parts = command.split(' ');
+    const action = parts[0];
+
+    switch (action) {
+        case 'BUILD':
+            if (parts.length === 3) {
+                const coord = parts[1];
+                const towerType = parts[2];
+                // 假设 T1 = Basic Tower, T2 = Tesla
+                alert(`尝试在 ${coord} 建造 ${towerType} (需 ${gameState.gold} Gold).`);
+                // 实际逻辑：扣除 Gold，更新 gameState.map，并调用 renderMap()
+            } else {
+                alert('BUILD 命令格式错误，应为: BUILD [坐标] [塔类型]');
+            }
+            break;
+        case 'CHOOSE':
+            if (parts.length === 2 && !isNaN(parts[1])) {
+                const choice = parseInt(parts[1]);
+                if (choice >= 1 && choice <= gameState.mutations.length) {
+                    alert(`你选择了变异 #${choice}: ${gameState.mutations[choice - 1]}.`);
+                    // 实际逻辑：应用变异效果，增加 TP 成本，重置变异列表
+                } else {
+                    alert('选择编号超出范围。');
+                }
+            } else {
+                alert('CHOOSE 命令格式错误，应为: CHOOSE [编号]');
+            }
+            break;
+        case 'CONTINUE':
+            alert('准备开始下一波战斗...');
+            // 实际逻辑：启动下一波计时器
+            break;
+        default:
+            alert(`未知指令: ${action}. 请使用 BUILD, CHOOSE 或 CONTINUE。`);
+    }
 }
 
-// --- 游戏主循环 ---
-
-function gameLoop() {
-    // 1. 清空画布
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 2. 更新游戏状态
-    updatePlayer();
-    updateBullets();
-    updateEnemies();
-    checkCollisions(); // 检测碰撞并更新列表
-
-    // 3. 绘制游戏对象
-    drawPlayer();
-    drawBullets();
-    drawEnemies();
-    drawScore();
-
-    // 4. 请求下一帧动画
-    requestAnimationFrame(gameLoop);
-}
-
-// 启动游戏循环
-gameLoop();
-
-console.log('游戏已启动！使用 A/D 或左右箭头移动，空格键发射子弹。');
+// --- 游戏启动 ---
+document.addEventListener('DOMContentLoaded', () => {
+    renderStatus();
+    renderMap();
+    renderMutations();
+    console.log("策略 UI 框架已加载。尝试在输入框中输入 'CHOOSE 2' 并点击执行。");
+});
