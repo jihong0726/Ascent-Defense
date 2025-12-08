@@ -2,43 +2,38 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ascent Defense - 策略点击版</title>
+    <title>TD 玩家体验优化原型</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header-status">
-            核心 HP: <span id="coreHP">10/10</span> | GOLD: <span id="gold">450</span> | TP: <span id="tp">3</span> | 波次: <span id="wave">12</span>
-        </div>
-
-        <div class="map-deployment">
-            <h2>[地图部署 (4x4)]</h2>
-            <div id="grid-container">
-            </div>
-        </div>
-
-        <div class="action-menu">
-            <h2>[当前操作：信息和指令]</h2>
-            <div id="action-prompt">
-                请选择一个地图坐标（A1-D4）开始操作。
-            </div>
-            <div class="tower-list">
-                <h3>[可建造塔列表]</h3>
-                <p><strong>T1 - 基础机枪塔:</strong> 费用: <span id="T1-cost">100</span> GOLD (Dmg: 10, Rng: 2)</p>
-                <p><strong>T2 - 脉冲特斯拉:</strong> 费用: <span id="T2-cost">250</span> GOLD (Dmg: 25, Rng: 3)</p>
-            </div>
-            
-            <button onclick="window.continueWave()" class="next-wave-button">继续下一波战斗 (回合结算)</button>
-        </div>
+    <h1>塔防玩家体验原型模拟</h1>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
         
-        <div class="tech-menu">
-            <h2>[科技变异菜单]</h2>
-            <div id="mutation-choice-area">
-            </div>
+        <div id="sidebar">
+            <h2>游戏状态</h2>
+            <p>资金: <span id="money-display">500</span></p>
+            <p>生命: <span id="lives-display">20</span></p>
+            <p>波次: <span id="wave-display">0</span></p>
+            <p>刻度: <span id="tick-display">0</span></p>
+
+            <hr>
+
+            <button onclick="startGame()" id="start-btn">开始模拟</button>
+            <button onclick="pauseGame()" id="pause-btn" disabled>暂停</button>
+
+            <hr>
+
+            <h3>塔操作 (点击区域坐标测试)</h3>
+            <button onclick="placeTower('T1', 2, 6)">放置 T1 (2,6)</button>
+            <button onclick="upgradeTower(1)">升级 T1</button>
+            <button onclick="setTowerStrategy(2, 'STRONGEST')">T2切换至最强</button>
+            
+            <div id="log-output"></div>
         </div>
     </div>
-    
-    <script src="game_ui.js"></script>
+
+    <script src="game.js"></script>
 </body>
 </html>
