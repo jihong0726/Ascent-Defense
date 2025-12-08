@@ -13,8 +13,8 @@
         
         <div id="sidebar">
             <h2>游戏状态</h2>
-            <p>资金: <span id="money-display">500</span></p>
-            <p>生命: <span id="lives-display">20</span></p>
+            <p>资金: <span id="money-display">0</span></p>
+            <p>生命: <span id="lives-display">0</span></p>
             <p>波次: <span id="wave-display">0</span></p>
             <p>刻度: <span id="tick-display">0</span></p>
 
@@ -25,11 +25,14 @@
 
             <hr>
 
-            <h3>塔操作 (点击区域坐标测试)</h3>
-            <button onclick="placeTower('T1', 2, 6)">放置 T1 (2,6)</button>
-            <button onclick="upgradeTower(1)">升级 T1</button>
-            <button onclick="setTowerStrategy(2, 'STRONGEST')">T2切换至最强</button>
+            <h3>塔操作 (ID 1-3 是初始放置的塔)</h3>
+            <button onclick="placeTower('T4', 3, 5)">放置 T4 (3,5)</button>
+            <button onclick="upgradeTower(1)">升级 T1 (ID 1)</button>
+            <button onclick="setTowerStrategy(2, 'STRONGEST')">T2 策略: 最强敌人</button>
+            <button onclick="setTowerStrategy(3, 'WEAKEST')">T3 策略: 最弱敌人</button>
             
+            <hr>
+            <h3>模拟日志</h3>
             <div id="log-output"></div>
         </div>
     </div>
