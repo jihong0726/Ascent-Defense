@@ -1,342 +1,510 @@
-// --- 游戏数据和状态 ---
-const TOWER_PRICES = {
-    'T1': { name: '基础机枪塔', cost: 100, level: 1, damage: 10, range: 2 }, 
-    'T2': { name: '脉冲特斯拉', cost: 250, level: 1, damage: 25, range: 3 },
+// --- 核心配置数据 ---
+let NEXT_ID = 1;
+
+const PATH = [
+    { x: 0, y: 5 }, { x: 2, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 8 }, 
+    { x: 8, y: 8 }, { x: 8, y: 2 }, { x: 10, y: 2 } 
+];
+
+const ENEMY_CONFIGS = {
+    'S_Basic': { hp: 100, armor: 5, speed: 1, reward: 5 },
+    'F_Runner': { hp: 50, armor: 0, speed: 2, reward: 8 },
+    'T_Tank': { hp: 300, armor: 15, speed: 0.5, reward: 20 }
 };
 
-const gameState = {
-    coreHP: 10,
-    maxHP: 10,
-    gold: 450,
-    tp: 3,
-    wave: 12,
-    enemies: [], 
-    map: {
-        A4: { content: '入口 >>>', type: 'special' }, B4: { content: '空', type: 'empty' }, C4: { content: '空', type: 'empty' }, D4: { content: '出口', type: 'special' },
-        A3: { content: '空', type: 'empty' }, B3: { content: '空', type: 'empty' }, C3: { content: '核心', type: 'special' }, D3: { content: '空', type: 'empty' },
-        A2: { content: '空', type: 'empty' }, B2: { content: '空', type: 'empty' }, C2: { content: '空', type: 'empty' }, D2: { content: '空', type: 'empty' },
-        A1: { content: '空', type: 'empty' }, B1: { content: '空', type: 'empty' }, C1: { content: '空', type: 'empty' }, D1: { content: '空', type: 'empty' },
+const STRATEGIES = {
+    FIRST: 'FIRST',       // 进度最靠前的 (跑得最远的)
+    STRONGEST: 'STRONGEST', // 血量最高的 (坦克)
+    WEAKEST: 'WEAKEST',   // 血量最低的 (补刀)
+    CLOSEST: 'CLOSEST'    // 距离塔最近的
+};
+
+const TOWER_CONFIGS = {
+    'T1': { 
+        damage: 10, range: 3, cost: 50, type: 'Physical',
+        cooldown: 10, // 攻速快 (每10 tick一发)
+        description: '基础物理塔'
     },
-    mutations: [
-        { id: 1, text: '破甲弹药: 所有塔 10% 几率移除 30% 物理护甲。', action: 'ARMOR_PIERCING' },
-        { id: 2, text: '核心加固: 核心生命值上限永久 +2 点。', action: 'CORE_HP_BOOST' },
-        { id: 3, text: '光环超载: T5 能量共振塔的攻速增益效果提高至 20%。', action: 'AURA_BOOST' }
-    ],
-    currentMode: 'DEPLOYMENT'
+    'T2': { 
+        damage: 50, range: 5, cost: 120, type: 'ArmorPiercing', armor_pierce: 0.5,
+        cooldown: 40, // 狙击塔：攻速慢，伤害高，范围大
+        description: '高伤穿甲塔'
+    },
+    'T3': { 
+        damage: 5, range: 2, cost: 200, type: 'Cryo', effect: { magnitude: 0.3, duration: 20, radius: 1 },
+        cooldown: 5, // 喷雾塔：攻速极快，AoE 减速
+        description: '群控减速塔'
+    },
+    'T4': { 
+        damage: 15, range: 3, cost: 250, type: 'Shredding', 
+        effect: { type: 'ArmorShred', magnitude: 2, duration: 5 }, // 削减 2 点护甲，持续 5 回合
+        cooldown: 15,
+        description: '护甲削弱塔'
+    } 
 };
 
-// --- 渲染函数 ---
+const WAVES_CONFIG = [
+    { waveId: 1, segments: [
+        { type: 'S_Basic', count: 5, delay: 0, interval: 5 }, // 5个基础兵，每隔5 tick生成
+        { type: 'F_Runner', count: 2, delay: 30, interval: 8 } // 30 tick 后，生成2个跑者，每隔8 tick生成
+    ]},
+    { waveId: 2, segments: [
+        { type: 'S_Basic', count: 10, delay: 0, interval: 4 },
+        { type: 'T_Tank', count: 1, delay: 50, interval: 0 } // Boss 在 50 tick 后单独生成
+    ]}
+];
 
-function renderStatus() {
-    document.getElementById('coreHP').textContent = `${gameState.coreHP}/${gameState.maxHP}`;
-    document.getElementById('gold').textContent = gameState.gold;
-    document.getElementById('tp').textContent = gameState.tp;
-    document.getElementById('wave').textContent = gameState.wave;
-}
+// --- 实体类定义 ---
 
-function renderMap() {
-    const gridContainer = document.getElementById('grid-container');
-    gridContainer.innerHTML = '';
-    
-    // 确保顺序是从上到下，从左到右 (A4, B4, C4, D4, ...)
-    const mapKeys = ['A4', 'B4', 'C4', 'D4', 'A3', 'B3', 'C3', 'D3', 'A2', 'B2', 'C2', 'D2', 'A1', 'B1', 'C1', 'D1'];
-    
-    mapKeys.forEach(coord => {
-        const cell = document.createElement('div');
-        cell.className = 'grid-cell';
-        cell.dataset.coord = coord; 
+class Enemy {
+    constructor(type, pathIndex = 0) {
+        const config = ENEMY_CONFIGS[type];
+        this.id = NEXT_ID++;
+        this.type = type;
+        this.hp = config.hp;
+        this.maxHp = config.hp;
+        this.baseArmor = config.armor;
+        this.baseSpeed = config.speed;
+        this.reward = config.reward;
         
-        // **修复：确保点击事件绑定到全局函数**
-        if (gameState.map[coord].type !== 'special') {
-             cell.onclick = () => window.handleGridClick(coord); 
+        this.pathIndex = pathIndex;
+        this.x = PATH[pathIndex].x;
+        this.y = PATH[pathIndex].y;
+
+        this.activeEffects = []; // [{ type: 'Slow', magnitude: 0.3, duration: 20, sourceId: 1 }, ...]
+    }
+
+    /** 应用状态效果，支持叠加或刷新持续时间 */
+    applyEffect(type, magnitude, duration, sourceId) {
+        const existingEffect = this.activeEffects.find(e => e.type === type && e.sourceId === sourceId);
+        
+        if (existingEffect) {
+            // 刷新持续时间
+            existingEffect.duration = duration;
+            // 如果效果可叠加，可以修改 magnitude (本例只叠加减速，其他效果刷新)
         } else {
-             // 特殊单元格只显示信息，不绑定操作
-             cell.onclick = () => updateActionPrompt(`信息：${coord} 是 ${gameState.map[coord].content}，不能在此操作。`);
+            this.activeEffects.push({ type, magnitude, duration, sourceId });
         }
+    }
 
-
-        const cellData = gameState.map[coord];
-        let content = cellData.content;
-        cell.innerHTML = `<strong>${coord}</strong><br>${content}`;
+    /** 计算实际速度 (乘性叠加减速，并设置下限) */
+    getActualSpeed() {
+        let speedMultiplier = 1.0;
         
-        if (cellData.type === 'special') {
-            cell.classList.add('special-cell');
-        } else if (cellData.type === 'tower') {
-            cell.classList.add('tower-cell');
+        this.activeEffects
+            .filter(e => e.type === 'Slow')
+            .forEach(e => {
+                // 乘性叠加: (1 - 0.3) * (1 - 0.2) = 0.56 最终速度
+                speedMultiplier *= (1 - e.magnitude); 
+            });
+
+        // 限制：速度最低不能低于基础速度的 10%
+        const minSpeed = this.baseSpeed * 0.1;
+        return Math.max(minSpeed, this.baseSpeed * speedMultiplier);
+    }
+
+    /** 计算有效护甲 (受 ArmorShred 影响) */
+    getEffectiveArmor() {
+        let armorDelta = 0; 
+        this.activeEffects
+            .filter(e => e.type === 'ArmorShred')
+            .forEach(e => {
+                armorDelta -= e.magnitude; 
+            });
+
+        // 护甲最低为 0 (可以改为允许负数实现增伤，但这里设为0)
+        return Math.max(0, this.baseArmor + armorDelta);
+    }
+
+    /** 移除过期效果并处理周期性效果 */
+    tickEffects() {
+        this.activeEffects = this.activeEffects
+            .map(effect => ({ ...effect, duration: effect.duration - 1 }))
+            .filter(effect => effect.duration > 0);
+    }
+
+    /** 移动逻辑 */
+    move(steps) {
+        if (this.pathIndex >= PATH.length - 1) return true; // 已到达终点
+
+        this.pathIndex = Math.min(this.pathIndex + steps, PATH.length - 1);
+        this.x = PATH[this.pathIndex].x;
+        this.y = PATH[this.pathIndex].y;
+        
+        return this.pathIndex === PATH.length - 1; // 返回是否到达终点
+    }
+}
+
+
+class Tower {
+    constructor(type, x, y) {
+        const config = TOWER_CONFIGS[type];
+        this.id = NEXT_ID++;
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        
+        // 属性
+        this.level = 1;
+        this.range = config.range;
+        this.baseDamage = config.damage;
+        
+        // 冷却/攻速机制
+        this.cooldownMax = config.cooldown; 
+        this.cooldownCurrent = 0;
+
+        // 索敌策略
+        this.strategy = STRATEGIES.FIRST; 
+    }
+
+    /** 升级塔：提升属性 */
+    upgrade() {
+        this.level++;
+        this.baseDamage = Math.floor(this.baseDamage * 1.5); // 伤害提升 50%
+        this.range += 0.5; // 范围微增
+        this.cooldownMax = Math.max(5, this.cooldownMax - 2); // 攻速略微提升，有下限
+    }
+
+    /** 切换索敌模式 */
+    setStrategy(newStrategy) {
+        if (STRATEGIES[newStrategy]) {
+            this.strategy = newStrategy;
+            console.log(`Tower ${this.id} strategy set to ${newStrategy}`);
         }
-        
-        gridContainer.appendChild(cell);
-    });
-}
-
-function renderMutations() {
-    const choiceArea = document.getElementById('mutation-choice-area');
-    choiceArea.innerHTML = '';
-    
-    gameState.mutations.forEach(mutation => {
-        const button = document.createElement('button');
-        button.className = 'mutation-button';
-        button.innerHTML = `(${mutation.id}) ${mutation.text}`;
-        button.onclick = () => window.chooseMutation(mutation.id); // 绑定到全局
-        choiceArea.appendChild(button);
-    });
-}
-
-function updateActionPrompt(message) {
-    document.getElementById('action-prompt').innerHTML = message;
-}
-
-// --- 交互/点击逻辑 (FIXED: 声明为 window. 确保全局可访问) ---
-
-window.handleGridClick = function(coord) {
-    const cellData = gameState.map[coord];
-
-    if (cellData.type === 'special') {
-        updateActionPrompt(`信息：${coord} 是 ${cellData.content}，不能在此操作。`);
-        return;
     }
 
-    if (cellData.type === 'empty') {
-        updateActionPrompt(`你选择了空地 ${coord}。请点击下方塔类型按钮进行建造。`);
-        showBuildButtons(coord);
-    } else if (cellData.type === 'tower') {
-        updateActionPrompt(`你选择了 ${coord} 处的 ${cellData.content}。你想升级还是出售？`);
-        showUpgradeSellButtons(coord);
-    }
-}
+    /** 智能索敌逻辑 */
+    findTarget(enemies) {
+        // 1. 筛选出范围内的所有敌人
+        const candidates = enemies.filter(e => 
+            Math.hypot(e.x - this.x, e.y - this.y) <= this.range 
+        );
 
-function showBuildButtons(coord) {
-    const promptArea = document.getElementById('action-prompt');
-    let buttonsHTML = `<p>选择要建造的塔：</p>`;
-    
-    Object.keys(TOWER_PRICES).forEach(id => {
-        const info = TOWER_PRICES[id];
-        buttonsHTML += `<button onclick="window.buildTower('${coord}', '${id}')" style="margin-right: 10px;">
-                            建造 ${id} (${info.name}) - ${info.cost} GOLD
-                        </button>`;
-    });
+        if (candidates.length === 0) return null;
 
-    buttonsHTML += `<button onclick="window.resetAction()" style="margin-top: 10px;">取消</button>`;
-    promptArea.innerHTML = buttonsHTML;
-}
-
-function showUpgradeSellButtons(coord) {
-    const promptArea = document.getElementById('action-prompt');
-    const towerId = gameState.map[coord].towerId;
-    const upgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6); 
-    const sellValue = Math.floor(TOWER_PRICES[towerId].cost * 0.7); 
-    
-    const buttonsHTML = `
-        <button onclick="window.upgradeTower('${coord}')" style="margin-right: 10px;">升级 (费用: ${upgradeCost} GOLD)</button>
-        <button onclick="window.sellTower('${coord}')" style="margin-right: 10px; background-color: #f39c12;">出售 (获得: ${sellValue} GOLD)</button>
-        <button onclick="window.resetAction()">取消</button>
-    `;
-    promptArea.innerHTML = buttonsHTML;
-}
-
-
-// --- 核心动作函数 (都使用 window. 确保 HTML 内联事件能调用) ---
-
-window.buildTower = function(coord, towerId) {
-    const towerInfo = TOWER_PRICES[towerId];
-
-    if (gameState.gold < towerInfo.cost) {
-        alert(`错误：GOLD 不足! 需要 ${towerInfo.cost} GOLD。`);
-        return;
-    }
-
-    gameState.gold -= towerInfo.cost;
-    gameState.map[coord] = {
-        content: `${towerInfo.name}/Lv1`,
-        type: 'tower',
-        towerId: towerId,
-        level: 1,
-    };
-
-    renderStatus();
-    renderMap();
-    updateActionPrompt(`成功建造 ${towerInfo.name} 在 ${coord}。`);
-}
-
-window.upgradeTower = function(coord) {
-    const cellData = gameState.map[coord];
-    const towerId = cellData.towerId;
-    const upgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6 * cellData.level); // 升级费用随等级增加
-
-    if (gameState.gold < upgradeCost) {
-        alert(`错误：升级需要 ${upgradeCost} GOLD，资源不足。`);
-        return;
-    }
-
-    gameState.gold -= upgradeCost;
-    cellData.level += 1;
-    cellData.content = `${TOWER_PRICES[towerId].name}/Lv${cellData.level}`;
-
-    renderStatus();
-    renderMap();
-    updateActionPrompt(`${coord} 处的塔已升级到 Lv${cellData.level}。`);
-}
-
-window.sellTower = function(coord) {
-    const cellData = gameState.map[coord];
-    const towerId = cellData.towerId;
-    // 假设售价为基础成本 * 0.7 + (升级成本 * 0.5 * (等级-1))
-    const baseSell = Math.floor(TOWER_PRICES[towerId].cost * 0.7);
-    const totalUpgradeCost = Math.floor(TOWER_PRICES[towerId].cost * 0.6) * (cellData.level - 1);
-    const sellValue = baseSell + Math.floor(totalUpgradeCost * 0.5);
-
-    gameState.gold += sellValue;
-    gameState.map[coord] = { content: '空', type: 'empty' };
-
-    renderStatus();
-    renderMap();
-    updateActionPrompt(`成功出售 ${coord} 处的塔，获得 ${sellValue} GOLD。`);
-}
-
-
-window.chooseMutation = function(id) {
-    const mutation = gameState.mutations.find(m => m.id === id);
-    if (!mutation) return;
-
-    if (gameState.tp < 1) {
-        alert('错误：TP 不足，无法选择变异！');
-        return;
-    }
-    gameState.tp -= 1;
-
-    if (mutation.action === 'CORE_HP_BOOST') {
-        gameState.maxHP += 2;
-        gameState.coreHP = gameState.maxHP;
-        alert(`核心生命值上限永久 +2 (${gameState.maxHP})，已满血恢复！`);
-    } else {
-        alert(`已选择变异 #${id}: ${mutation.text}。效果已应用。`);
-    }
-    
-    renderStatus();
-    // 移除已选择的变异，并重新渲染变异菜单 (此处简化为只更新状态)
-}
-
-window.resetAction = function() {
-    updateActionPrompt("请选择一个地图坐标（A1-D4）开始操作。");
-}
-
-// --- 回合制战斗逻辑 ---
-
-window.continueWave = function() {
-    if (gameState.coreHP <= 0) {
-        alert("核心已被摧毁。游戏结束！");
-        return;
-    }
-
-    if (gameState.enemies.length === 0) {
-        // 如果没有敌人，进入下一波 (生成敌人)
-        gameState.wave += 1;
-        
-        // 动态生成敌人：波次越高，敌人越多/血量越高
-        const enemyCount = 2 + Math.floor(gameState.wave / 5);
-        for(let i = 0; i < enemyCount; i++) {
-             gameState.enemies.push(
-                { id: Date.now() + i, hp: 50 + gameState.wave * 10, maxHp: 50 + gameState.wave * 10, position: 'D4', speed: 1, reward: 12 + gameState.wave }
-            );
-        }
-       
-        updateActionPrompt(`第 ${gameState.wave} 波敌人已生成 (${gameState.enemies.length} 个)。点击 [继续下一波战斗] 开始结算。`);
-        renderStatus();
-        return;
-    }
-
-    // 真正的回合结算开始
-    alert(`开始回合结算 (${gameState.enemies.length} 敌人剩余)...`);
-    
-    // 1. 塔攻击阶段
-    processTowerAttacks();
-
-    // 2. 敌人移动阶段
-    processEnemyMovement();
-    
-    // 3. 结算和渲染
-    if (gameState.coreHP <= 0) {
-        alert("核心已被摧毁。游戏结束！");
-        return;
-    }
-
-    if (gameState.enemies.length > 0) {
-        updateActionPrompt(`回合结算完成。剩余 ${gameState.enemies.length} 个敌人。请继续。`);
-    } else {
-        // 敌人清空，回合结束，等待玩家部署
-        updateActionPrompt(`所有敌人已被消灭！获得 1 TP。请部署或升级，然后点击下一波。`);
-        gameState.tp += 1;
-    }
-    
-    renderStatus();
-    renderMap();
-}
-
-function processTowerAttacks() {
-    // 遍历地图上的所有塔
-    Object.keys(gameState.map).forEach(coord => {
-        const cellData = gameState.map[coord];
-        if (cellData.type === 'tower' && gameState.enemies.length > 0) {
-            const towerInfo = TOWER_PRICES[cellData.towerId];
+        // 2. 根据策略选择目标
+        switch (this.strategy) {
+            case STRATEGIES.STRONGEST:
+                return candidates.reduce((prev, curr) => (prev.hp > curr.hp) ? prev : curr);
             
-            // 简化：总是攻击第一个敌人
-            let target = gameState.enemies[0];
+            case STRATEGIES.WEAKEST:
+                return candidates.reduce((prev, curr) => (prev.hp < curr.hp) ? prev : curr);
+
+            case STRATEGIES.CLOSEST:
+                return candidates.reduce((prev, curr) => {
+                    const distPrev = Math.hypot(prev.x - this.x, prev.y - this.y);
+                    const distCurr = Math.hypot(curr.x - this.x, curr.y - this.y);
+                    return (distPrev < distCurr) ? prev : curr;
+                });
+
+            case STRATEGIES.FIRST:
+            default:
+                // 跑得最远的 (pathIndex 最大)
+                return candidates.reduce((prev, curr) => (prev.pathIndex > curr.pathIndex) ? prev : curr);
+        }
+    }
+
+    /** 冷却/索敌/攻击主循环 */
+    tryAttack(game) {
+        // 1. 冷却检查
+        if (this.cooldownCurrent > 0) {
+            this.cooldownCurrent--;
+            return;
+        }
+
+        // 2. 索敌
+        const target = this.findTarget(game.enemies);
+        
+        // 3. 攻击
+        if (target) {
+            this.attack(target, game);
+            this.cooldownCurrent = this.cooldownMax; // 重置冷却
+        }
+    }
+
+    /** 伤害计算 */
+    calculateDamage(enemy, config) {
+        // 使用敌人的动态有效护甲
+        let effectiveArmor = enemy.getEffectiveArmor(); 
+
+        if (config.type === 'ArmorPiercing') {
+            effectiveArmor *= (1 - config.armor_pierce); // T2 穿甲
+        }
+        
+        // 使用塔的当前基础伤害
+        let finalDamage = this.baseDamage - effectiveArmor;
+        
+        // 伤害最低为 1 (保底伤害，防止高甲敌人无敌)
+        return Math.max(1, finalDamage);
+    }
+
+    /** 核心攻击方法 */
+    attack(target, game) {
+        const config = TOWER_CONFIGS[this.type];
+        
+        if (this.type === 'T3') {
+            // T3 Cryo Tower: AoE 减速
+            const aoeRange = config.effect.radius;
+            game.enemies.forEach(enemy => {
+                if (Math.hypot(enemy.x - target.x, enemy.y - target.y) <= aoeRange) {
+                    // 造成微量伤害
+                    enemy.hp -= this.calculateDamage(enemy, config);
+                    // 应用减速
+                    enemy.applyEffect('Slow', config.effect.magnitude, config.effect.duration, this.id);
+                }
+            });
             
-            if (target) {
-                const damage = towerInfo.damage * cellData.level;
-                target.hp -= damage;
-                
-                if (target.hp <= 0) {
-                    gameState.gold += target.reward; 
-                    gameState.enemies.splice(0, 1); 
-                    // 实际中这里会更新敌人模型，本次简化为只更新状态和金钱
+        } else if (this.type === 'T4') {
+            // T4 Shredding Tower: 施加 ArmorShred 效果
+            const damage = this.calculateDamage(target, config);
+            target.hp -= damage;
+            
+            target.applyEffect(config.effect.type, config.effect.magnitude, config.effect.duration, this.id);
+            
+        } else {
+            // T1 / T2: 标准伤害计算
+            const damage = this.calculateDamage(target, config);
+            target.hp -= damage;
+        }
+        
+        // 记录攻击行为
+        // console.log(`Tower ${this.id} (${this.type} Lv${this.level}) attacked Enemy ${target.id} for ${target.hp <= 0 ? damage : damage.toFixed(1)} damage. Target HP: ${target.hp.toFixed(1)}`);
+    }
+}
+
+// --- 游戏主类 ---
+
+class Game {
+    constructor(initialMoney = 200, initialLives = 20) {
+        this.tickCount = 0;
+        this.money = initialMoney;
+        this.lives = initialLives;
+        this.wave = 0;
+        
+        this.towers = [];
+        this.enemies = [];
+
+        // 波次控制变量
+        this.currentWaveSegment = []; // 待生成的敌人队列
+        this.waveDelayTimer = 0;      // 下一个分段生成前的等待计时器
+    }
+
+    /** 尝试购买并建造塔 */
+    buildTower(type, x, y) {
+        const config = TOWER_CONFIGS[type];
+        if (!config) return console.error(`Invalid tower type: ${type}`);
+        
+        if (this.money >= config.cost) {
+            const newTower = new Tower(type, x, y);
+            this.towers.push(newTower);
+            this.money -= config.cost;
+            console.log(`Built ${type} at (${x},${y}). Money left: ${this.money}`);
+            return newTower;
+        } else {
+            console.log(`Not enough money to build ${type}. Need ${config.cost}, have ${this.money}.`);
+            return null;
+        }
+    }
+    
+    /** 尝试升级塔 */
+    upgradeTower(towerId) {
+        const tower = this.towers.find(t => t.id === towerId);
+        if (!tower) return console.error(`Tower ID ${towerId} not found.`);
+
+        const upgradeCost = Math.floor(TOWER_CONFIGS[tower.type].cost * tower.level * 0.8); // 假设升级费用递增
+        
+        if (this.money >= upgradeCost) {
+            tower.upgrade();
+            this.money -= upgradeCost;
+            console.log(`Upgraded Tower ${towerId} to Lv${tower.level}. Cost: ${upgradeCost}. Money left: ${this.money}`);
+            return true;
+        } else {
+            console.log(`Not enough money to upgrade Tower ${towerId}. Need ${upgradeCost}, have ${this.money}.`);
+            return false;
+        }
+    }
+
+    /** 启动波次并填充生成队列 */
+    startWave() {
+        if (this.wave >= WAVES_CONFIG.length) {
+            console.log("Game Over: All waves defeated!");
+            return false;
+        }
+        
+        const waveConfig = WAVES_CONFIG[this.wave];
+        
+        // 填充生成队列，每个敌人实例记录其生成延迟
+        this.currentWaveSegment = [];
+        waveConfig.segments.forEach(segment => {
+            for (let i = 0; i < segment.count; i++) {
+                this.currentWaveSegment.push({ 
+                    type: segment.type, 
+                    delay: segment.delay + i * segment.interval // 总延迟 = 波次延迟 + 内部生成间隔
+                });
+            }
+        });
+        
+        // 按延迟排序，确保生成顺序正确
+        this.currentWaveSegment.sort((a, b) => a.delay - b.delay);
+        
+        this.wave++;
+        this.waveDelayTimer = 0;
+        console.log(`--- Starting Wave ${this.wave} ---`);
+        return true;
+    }
+
+    /** 处理敌人生成逻辑 */
+    processEnemySpawning() {
+        if (this.currentWaveSegment.length === 0) return;
+
+        // 检查计时器是否允许生成下一批敌人
+        if (this.waveDelayTimer > 0) {
+            this.waveDelayTimer--;
+            return;
+        }
+
+        // 找到下一个待生成的敌人组
+        const nextGroupDelay = this.currentWaveSegment[0].delay;
+        const enemiesToSpawn = this.currentWaveSegment.filter(e => e.delay === nextGroupDelay);
+
+        // 生成敌人
+        enemiesToSpawn.forEach(enemyConfig => {
+            this.enemies.push(new Enemy(enemyConfig.type, 0));
+        });
+
+        // 移除已生成的敌人
+        this.currentWaveSegment = this.currentWaveSegment.filter(e => e.delay !== nextGroupDelay);
+
+        // 如果队列未空，设置下一个分段的延迟
+        if (this.currentWaveSegment.length > 0) {
+            const nextDelay = this.currentWaveSegment[0].delay;
+            // 设置计时器
+            this.waveDelayTimer = nextDelay - nextGroupDelay;
+            // 减去所有剩余敌人的 delay，使其从新的计时器基准开始
+            this.currentWaveSegment = this.currentWaveSegment.map(e => ({...e, delay: e.delay - this.waveDelayTimer}));
+        }
+    }
+
+    /** 处理塔攻击 */
+    processTowerAttacks() {
+        this.towers.forEach(tower => {
+            tower.tryAttack(this);
+        });
+    }
+
+    /** 处理敌人移动和效果更新 */
+    processEnemyMovement() {
+        const deadEnemies = [];
+        const reachedEnd = [];
+
+        this.enemies.forEach(enemy => {
+            // 1. 效果更新
+            enemy.tickEffects(); 
+
+            // 2. 移动
+            const actualSpeed = enemy.getActualSpeed();
+            const steps = Math.floor(actualSpeed); 
+            
+            if (steps > 0) {
+                const reached = enemy.move(steps);
+                if (reached) {
+                    reachedEnd.push(enemy);
                 }
             }
+
+            // 3. 检查死亡
+            if (enemy.hp <= 0) {
+                deadEnemies.push(enemy);
+            }
+        });
+
+        // 奖励金钱并移除死亡敌人
+        deadEnemies.forEach(e => {
+            this.money += e.reward;
+            // console.log(`Enemy ${e.id} defeated. Gained ${e.reward}. Total Money: ${this.money}`);
+        });
+
+        // 扣除生命值并移除到达终点的敌人
+        reachedEnd.forEach(() => {
+            this.lives--;
+            // console.log("Enemy reached end! Lives left: " + this.lives);
+        });
+
+        // 过滤掉死亡或到达终点的敌人
+        const enemiesToKeep = this.enemies.filter(enemy => 
+            enemy.hp > 0 && enemy.pathIndex < PATH.length - 1
+        );
+
+        this.enemies = enemiesToKeep;
+
+        // 检查波次结束
+        if (this.currentWaveSegment.length === 0 && this.enemies.length === 0) {
+            console.log(`Wave ${this.wave} cleared!`);
+            this.money += 50; // 波次奖励
+            this.startWave(); // 尝试开始下一波
         }
-    });
-}
+    }
 
-function processEnemyMovement() {
-    // 路径模拟 (入口 D4, 出口 C3 核心)
-    const simplifiedPath = {
-        'D4': 'C4', 'C4': 'B4', 'B4': 'A4', 
-        'A4': 'A3', 'A3': 'B3', 'B3': 'C3', // 走向核心C3
-        'D3': 'C3', 'D2': 'C3', 'D1': 'C3', 
-        'C1': 'C2', 'C2': 'C3', 
-        // 简化的路径，确保所有点最终都能走向核心 C3
-    };
+    /** 核心游戏逻辑：一个时间刻度 */
+    tick() {
+        if (this.lives <= 0) {
+            console.log("GAME OVER!");
+            return false;
+        }
 
-    // 敌人移动和核心伤害
-    gameState.enemies = gameState.enemies.filter(enemy => {
-        if (enemy.position === 'C3') {
-            // 到达核心，造成伤害
-            gameState.coreHP -= 1; 
-            updateActionPrompt(`敌人到达核心！核心 HP 减 1。`);
-            return false; // 敌人消失
+        if (this.enemies.length === 0 && this.currentWaveSegment.length === 0 && this.wave === 0) {
+            this.startWave(); // 首次启动
         }
         
-        const nextPos = simplifiedPath[enemy.position];
-        if (nextPos) {
-            enemy.position = nextPos;
-            return true;
-        }
-
-        // 如果敌人路径走到尽头，但不是核心 (理论上不应发生)
-        gameState.coreHP -= 1; 
-        updateActionPrompt(`警告：敌人路径错误，强制伤害核心。`);
-        return false;
-    });
+        this.tickCount++;
+        
+        this.processEnemySpawning();
+        this.processTowerAttacks();
+        this.processEnemyMovement();
+        
+        return true;
+    }
 }
 
-// --- 游戏启动 ---
-document.addEventListener('DOMContentLoaded', () => {
-    // 初始化塔的成本显示
-    document.getElementById('T1-cost').textContent = TOWER_PRICES.T1.cost;
-    document.getElementById('T2-cost').textContent = TOWER_PRICES.T2.cost;
+
+// --- 示例用法 ---
+
+const game = new Game(500, 20); // 初始 500 金，20 生命
+
+// 建造初始塔
+const tower1 = game.buildTower('T1', 2, 6); // 基础塔
+const tower2 = game.buildTower('T2', 6, 8); // 狙击塔
+const tower3 = game.buildTower('T4', 5, 4); // 破甲塔
+
+// 设置塔的策略：让狙击塔专注于血量最高的敌人
+if (tower2) tower2.setStrategy(STRATEGIES.STRONGEST); 
+
+// 运行游戏循环
+console.log("\n--- Game Start ---");
+let running = true;
+let i = 0;
+
+while(running && i < 300) { // 限制运行 300 刻度
+    running = game.tick();
     
-    renderStatus();
-    renderMap();
-    renderMutations();
-    window.resetAction();
-    console.log("Ascent Defense 策略原型已启动。");
-});
+    // 示例：在第 150 刻度升级 T1 塔
+    if (i === 150 && tower1) {
+        game.upgradeTower(tower1.id);
+    }
+    
+    // 打印关键状态（每 10 刻度打印一次）
+    if (i % 10 === 0) {
+        console.log(`\n--- Tick ${i} | Lives: ${game.lives} | Money: ${game.money} ---`);
+        game.enemies.forEach(e => {
+            const actualSpeed = e.getActualSpeed();
+            const effectiveArmor = e.getEffectiveArmor();
+            console.log(`  Enemy ${e.id} (${e.type}): HP ${e.hp.toFixed(1)}/${e.maxHp} | Armor ${effectiveArmor.toFixed(1)} (Base ${e.baseArmor}) | Speed ${actualSpeed.toFixed(1)} (Base ${e.baseSpeed}) | Effects: ${e.activeEffects.length}`);
+        });
+        if (game.enemies.length === 0 && game.currentWaveSegment.length === 0) {
+            console.log("  Waiting for next wave...");
+        }
+    }
+    i++;
+}
+
+console.log("\n--- Simulation Ended ---");
