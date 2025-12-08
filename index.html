@@ -2,41 +2,478 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>TD 玩家体验优化原型</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ascent Defense 完整模拟</title>
+    <style>
+        /* CSS 样式部分 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e; /* 深色背景 */
+            color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { color: #4CAF50; margin-bottom: 20px; }
+
+        #game-container {
+            display: flex;
+            background-color: #333;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden; /* 防止溢出 */
+        }
+
+        #gameCanvas {
+            background-color: #2c3e50; /* 画布背景必须有颜色 */
+            border-right: 2px solid #555;
+            display: block; /* 防止产生额外边距 */
+        }
+
+        #sidebar {
+            width: 280px;
+            padding: 15px;
+            background-color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #sidebar h2, #sidebar h3 {
+            color: #4CAF50;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        #sidebar p { margin: 5px 0; font-size: 0.9em; }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            font-size: 0.9em;
+        }
+
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #777; cursor: not-allowed; }
+
+        #log-output {
+            margin-top: auto; /* 推到底部 */
+            height: 150px;
+            overflow-y: auto;
+            font-size: 0.8em;
+            padding: 5px;
+            background-color: #111;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        #log-output p { margin: 2px 0; border-bottom: 1px solid #222; }
+    </style>
 </head>
 <body>
-    <h1>塔防玩家体验原型模拟</h1>
+
+    <h1>Ascent Defense 策略原型</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         
         <div id="sidebar">
-            <h2>游戏状态</h2>
-            <p>资金: <span id="money-display">0</span></p>
-            <p>生命: <span id="lives-display">0</span></p>
-            <p>波次: <span id="wave-display">0</span></p>
-            <p>刻度: <span id="tick-display">0</span></p>
+            <h2>状态监控</h2>
+            <p>💰 资金: <span id="money-display">--</span></p>
+            <p>❤️ 生命: <span id="lives-display">--</span></p>
+            <p>🌊 波次: <span id="wave-display">--</span></p>
+            <p>⏱️ 刻度: <span id="tick-display">0</span></p>
 
-            <hr>
+            <div style="margin: 15px 0;">
+                <button onclick="startGame()" id="start-btn">▶ 开始模拟</button>
+                <button onclick="pauseGame()" id="pause-btn" disabled>⏸ 暂停</button>
+            </div>
 
-            <button onclick="startGame()" id="start-btn">开始模拟</button>
-            <button onclick="pauseGame()" id="pause-btn" disabled>暂停</button>
-
-            <hr>
-
-            <h3>塔操作 (ID 1-3 是初始放置的塔)</h3>
-            <button onclick="placeTower('T4', 3, 5)">放置 T4 (3,5)</button>
-            <button onclick="upgradeTower(1)">升级 T1 (ID 1)</button>
-            <button onclick="setTowerStrategy(2, 'STRONGEST')">T2 策略: 最强敌人</button>
-            <button onclick="setTowerStrategy(3, 'WEAKEST')">T3 策略: 最弱敌人</button>
+            <h3>战术指令 (测试用)</h3>
+            <button onclick="placeTower('T4', 3, 5)">🛠 放置 T4 破甲塔 (3,5)</button>
+            <button onclick="upgradeTower(1)">⬆ 升级 T1 (初始塔)</button>
+            <button onclick="setTowerStrategy(2, 'STRONGEST')">🎯 T2 策略: 打最强</button>
+            <button onclick="setTowerStrategy(3, 'WEAKEST')">🎯 T3 策略: 补刀</button>
             
-            <hr>
             <h3>模拟日志</h3>
             <div id="log-output"></div>
         </div>
     </div>
 
-    <script src="game.js"></script>
+    <script>
+        // ================= 配置数据 =================
+        let NEXT_ID = 1;
+        const GRID_SIZE = 50;
+
+        // 敌人移动路径 (基于网格坐标)
+        const PATH = [
+            { x: 0, y: 5 }, { x: 2, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 8 }, 
+            { x: 8, y: 8 }, { x: 8, y: 2 }, { x: 15, y: 2 } 
+        ];
+
+        const ENEMY_CONFIGS = {
+            'S_Basic': { hp: 100, armor: 5, speed: 1, reward: 5, color: 'white' },
+            'F_Runner': { hp: 50, armor: 0, speed: 2, reward: 8, color: 'yellow' },
+            'T_Tank': { hp: 300, armor: 15, speed: 0.5, reward: 20, color: 'darkred' }
+        };
+
+        const STRATEGIES = {
+            FIRST: 'FIRST', STRONGEST: 'STRONGEST', WEAKEST: 'WEAKEST', CLOSEST: 'CLOSEST'
+        };
+
+        const TOWER_CONFIGS = {
+            'T1': { damage: 10, range: 3, cost: 50, type: 'Physical', cooldown: 10, color: '#81c784' },
+            'T2': { damage: 50, range: 5, cost: 120, type: 'ArmorPiercing', armor_pierce: 0.5, cooldown: 40, color: '#ffab40' },
+            'T3': { damage: 5, range: 2, cost: 200, type: 'Cryo', effect: { magnitude: 0.3, duration: 20, radius: 1 }, cooldown: 5, color: '#4fc3f7' },
+            'T4': { damage: 15, range: 3, cost: 250, type: 'Shredding', effect: { type: 'ArmorShred', magnitude: 2, duration: 5 }, cooldown: 15, color: '#b39ddb' }
+        };
+
+        const WAVES_CONFIG = [
+            { waveId: 1, segments: [{ type: 'S_Basic', count: 5, delay: 0, interval: 10 }, { type: 'F_Runner', count: 3, delay: 80, interval: 15 }] },
+            { waveId: 2, segments: [{ type: 'T_Tank', count: 1, delay: 0, interval: 0 }, { type: 'S_Basic', count: 10, delay: 50, interval: 5 }] }
+        ];
+
+        // ================= 核心类定义 =================
+
+        class Enemy {
+            constructor(type, pathIndex = 0) {
+                const config = ENEMY_CONFIGS[type];
+                this.id = NEXT_ID++;
+                this.type = type;
+                this.hp = config.hp;
+                this.maxHp = config.hp;
+                this.baseArmor = config.armor;
+                this.baseSpeed = config.speed;
+                this.reward = config.reward;
+                this.color = config.color;
+                this.pathIndex = pathIndex;
+                this.x = PATH[pathIndex].x;
+                this.y = PATH[pathIndex].y;
+                this.activeEffects = []; 
+            }
+            applyEffect(type, magnitude, duration, sourceId) {
+                const existing = this.activeEffects.find(e => e.type === type && e.sourceId === sourceId);
+                if (existing) existing.duration = duration;
+                else this.activeEffects.push({ type, magnitude, duration, sourceId });
+            }
+            getActualSpeed() {
+                let mod = 1.0;
+                this.activeEffects.filter(e => e.type === 'Slow').forEach(e => mod *= (1 - e.magnitude));
+                return Math.max(this.baseSpeed * 0.1, this.baseSpeed * mod);
+            }
+            getEffectiveArmor() {
+                let shred = 0;
+                this.activeEffects.filter(e => e.type === 'ArmorShred').forEach(e => shred += e.magnitude);
+                return Math.max(0, this.baseArmor - shred);
+            }
+            tickEffects() {
+                this.activeEffects = this.activeEffects.map(e => ({...e, duration: e.duration - 1})).filter(e => e.duration > 0);
+            }
+            move(steps) {
+                if (this.pathIndex >= PATH.length - 1) return true;
+                this.pathIndex = Math.min(this.pathIndex + steps, PATH.length - 1);
+                this.x = PATH[this.pathIndex].x;
+                this.y = PATH[this.pathIndex].y;
+                return this.pathIndex === PATH.length - 1;
+            }
+        }
+
+        class Tower {
+            constructor(type, x, y) {
+                const config = TOWER_CONFIGS[type];
+                this.id = NEXT_ID++;
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.level = 1;
+                this.range = config.range;
+                this.baseDamage = config.damage;
+                this.cooldownMax = config.cooldown;
+                this.cooldownCurrent = 0;
+                this.strategy = STRATEGIES.FIRST;
+            }
+            upgrade() {
+                this.level++;
+                this.baseDamage = Math.floor(this.baseDamage * 1.5);
+                this.range += 0.5;
+                this.cooldownMax = Math.max(5, this.cooldownMax - 2);
+            }
+            setStrategy(strat) { if (STRATEGIES[strat]) this.strategy = strat; }
+            
+            findTarget(enemies) {
+                const candidates = enemies.filter(e => Math.hypot(e.x - this.x, e.y - this.y) <= this.range);
+                if (!candidates.length) return null;
+                
+                switch (this.strategy) {
+                    case STRATEGIES.STRONGEST: return candidates.reduce((p, c) => p.hp > c.hp ? p : c);
+                    case STRATEGIES.WEAKEST: return candidates.reduce((p, c) => p.hp < c.hp ? p : c);
+                    case STRATEGIES.CLOSEST: return candidates.reduce((p, c) => Math.hypot(p.x-this.x, p.y-this.y) < Math.hypot(c.x-this.x, c.y-this.y) ? p : c);
+                    default: return candidates.reduce((p, c) => p.pathIndex > c.pathIndex ? p : c);
+                }
+            }
+
+            tryAttack(game) {
+                if (this.cooldownCurrent > 0) { this.cooldownCurrent--; return; }
+                const target = this.findTarget(game.enemies);
+                if (target) {
+                    this.attack(target, game);
+                    this.cooldownCurrent = this.cooldownMax;
+                }
+            }
+
+            calculateDamage(enemy, config) {
+                let armor = enemy.getEffectiveArmor();
+                if (config.type === 'ArmorPiercing') armor *= (1 - config.armor_pierce);
+                return Math.max(1, this.baseDamage - armor);
+            }
+
+            attack(target, game) {
+                const config = TOWER_CONFIGS[this.type];
+                if (this.type === 'T3') { // AoE Slow
+                    const r = config.effect.radius;
+                    game.enemies.forEach(e => {
+                        if (Math.hypot(e.x - target.x, e.y - target.y) <= r) {
+                            e.hp -= this.calculateDamage(e, config);
+                            e.applyEffect('Slow', config.effect.magnitude, config.effect.duration, this.id);
+                        }
+                    });
+                } else if (this.type === 'T4') { // Shred
+                    target.hp -= this.calculateDamage(target, config);
+                    target.applyEffect('ArmorShred', config.effect.magnitude, config.effect.duration, this.id);
+                } else {
+                    target.hp -= this.calculateDamage(target, config);
+                }
+            }
+        }
+
+        class Game {
+            constructor(money, lives, canvas, ctx) {
+                this.money = money;
+                this.lives = lives;
+                this.canvas = canvas;
+                this.ctx = ctx;
+                this.wave = 0;
+                this.tickCount = 0;
+                this.towers = [];
+                this.enemies = [];
+                this.segment = [];
+                this.timer = 0;
+                this.log = document.getElementById('log-output');
+                this.updateUI();
+            }
+
+            logMsg(msg, color='white') {
+                const p = document.createElement('p');
+                p.innerHTML = `[${this.tickCount}] ${msg}`;
+                p.style.color = color;
+                this.log.prepend(p);
+                if (this.log.children.length > 20) this.log.lastChild.remove();
+            }
+
+            buildTower(type, x, y) {
+                const conf = TOWER_CONFIGS[type];
+                if (this.money >= conf.cost) {
+                    const t = new Tower(type, x, y);
+                    this.towers.push(t);
+                    this.money -= conf.cost;
+                    this.logMsg(`建造 ${type} 于 (${x},${y})`, 'lime');
+                    this.updateUI();
+                    this.render();
+                    return t;
+                }
+                this.logMsg(`资金不足建造 ${type}`, 'red');
+            }
+
+            upgradeTower(id) {
+                const t = this.towers.find(t => t.id === id);
+                if (!t) return;
+                const cost = Math.floor(TOWER_CONFIGS[t.type].cost * t.level * 0.8);
+                if (this.money >= cost) {
+                    this.money -= cost;
+                    t.upgrade();
+                    this.logMsg(`塔 ${id} 升级至 Lv${t.level}`, 'cyan');
+                    this.updateUI();
+                    this.render();
+                }
+            }
+
+            setStrategy(id, strat) {
+                const t = this.towers.find(t => t.id === id);
+                if (t) {
+                    t.setStrategy(strat);
+                    this.logMsg(`塔 ${id} 策略: ${strat}`, 'yellow');
+                }
+            }
+
+            startWave() {
+                if (this.wave >= WAVES_CONFIG.length) return this.logMsg("游戏通关!", 'gold');
+                const cfg = WAVES_CONFIG[this.wave];
+                this.segment = [];
+                cfg.segments.forEach(s => {
+                    for(let i=0; i<s.count; i++) this.segment.push({type:s.type, delay: s.delay + i*s.interval});
+                });
+                this.segment.sort((a,b)=>a.delay-b.delay);
+                this.wave++;
+                this.timer = 0;
+                this.logMsg(`--- 第 ${this.wave} 波开始 ---`, 'white');
+            }
+
+            tick() {
+                if (this.lives <= 0) { this.logMsg("游戏结束!", 'red'); return false; }
+                if (this.enemies.length === 0 && this.segment.length === 0 && this.wave === 0) this.startWave();
+                
+                this.tickCount++;
+
+                // 生成敌人
+                if (this.segment.length > 0) {
+                    if (this.timer > 0) this.timer--;
+                    else {
+                        const now = this.segment[0].delay;
+                        const batch = this.segment.filter(e => e.delay === now);
+                        batch.forEach(e => this.enemies.push(new Enemy(e.type)));
+                        this.segment = this.segment.filter(e => e.delay !== now);
+                        if (this.segment.length > 0) this.timer = this.segment[0].delay - now;
+                    }
+                }
+
+                // 塔攻击
+                this.towers.forEach(t => t.tryAttack(this));
+
+                // 敌人移动 & 结算
+                let dead = [], escaped = [];
+                this.enemies.forEach(e => {
+                    e.tickEffects();
+                    const spd = e.getActualSpeed();
+                    if (e.move(Math.floor(spd))) escaped.push(e);
+                    if (e.hp <= 0) dead.push(e);
+                });
+
+                dead.forEach(e => this.money += e.reward);
+                escaped.forEach(() => this.lives--);
+                this.enemies = this.enemies.filter(e => e.hp > 0 && e.pathIndex < PATH.length - 1);
+
+                if (this.segment.length === 0 && this.enemies.length === 0 && this.wave > 0) {
+                    this.logMsg(`波次完成! +50资金`, 'gold');
+                    this.money += 50;
+                    this.startWave();
+                }
+
+                this.updateUI();
+                this.render();
+                return true;
+            }
+
+            updateUI() {
+                document.getElementById('money-display').innerText = this.money;
+                document.getElementById('lives-display').innerText = this.lives;
+                document.getElementById('wave-display').innerText = this.wave;
+                document.getElementById('tick-display').innerText = this.tickCount;
+            }
+
+            render() {
+                const { ctx, canvas } = this;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 绘制路径
+                ctx.strokeStyle = '#4A90E2';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                PATH.forEach((p, i) => i===0 ? ctx.moveTo(p.x*GRID_SIZE+25, p.y*GRID_SIZE+25) : ctx.lineTo(p.x*GRID_SIZE+25, p.y*GRID_SIZE+25));
+                ctx.stroke();
+
+                // 绘制塔
+                this.towers.forEach(t => {
+                    const cx = t.x*GRID_SIZE+25, cy = t.y*GRID_SIZE+25;
+                    // 范围
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    ctx.beginPath(); ctx.arc(cx, cy, t.range*GRID_SIZE, 0, Math.PI*2); ctx.fill();
+                    // 塔身
+                    ctx.fillStyle = TOWER_CONFIGS[t.type].color;
+                    ctx.beginPath(); ctx.arc(cx, cy, 15, 0, Math.PI*2); ctx.fill();
+                    // 冷却环
+                    if(t.cooldownCurrent > 0) {
+                        ctx.strokeStyle = 'red'; ctx.lineWidth=2;
+                        ctx.beginPath(); ctx.arc(cx, cy, 18, 0, (t.cooldownMax-t.cooldownCurrent)/t.cooldownMax * Math.PI*2); ctx.stroke();
+                    }
+                    // 等级
+                    ctx.fillStyle='white'; ctx.font='10px Arial'; ctx.fillText(`Lv${t.level}`, cx-8, cy+4);
+                });
+
+                // 绘制敌人
+                this.enemies.forEach(e => {
+                    const cx = e.x*GRID_SIZE+25, cy = e.y*GRID_SIZE+25;
+                    ctx.fillStyle = e.color;
+                    ctx.fillRect(cx-8, cy-8, 16, 16);
+                    // 血条
+                    const hpPct = e.hp/e.maxHp;
+                    ctx.fillStyle='red'; ctx.fillRect(cx-10, cy-12, 20, 3);
+                    ctx.fillStyle='lime'; ctx.fillRect(cx-10, cy-12, 20*hpPct, 3);
+                    // 减速标识
+                    if(e.activeEffects.some(ef=>ef.type==='Slow')) {
+                        ctx.strokeStyle='cyan'; ctx.lineWidth=2; ctx.strokeRect(cx-10, cy-10, 20, 20);
+                    }
+                });
+            }
+        }
+
+        // ================= 全局控制 =================
+        let game = null;
+        let timer = null;
+
+        // 页面加载后立即初始化
+        window.onload = () => {
+            const cvs = document.getElementById('gameCanvas');
+            const ctx = cvs.getContext('2d');
+            game = new Game(500, 20, cvs, ctx);
+            
+            // 预设塔用于演示
+            game.buildTower('T1', 2, 6);
+            game.buildTower('T2', 6, 8);
+            game.buildTower('T3', 5, 4);
+            
+            // 确保 T2 打最强
+            const t2 = game.towers.find(t=>t.type==='T2');
+            if(t2) t2.setStrategy('STRONGEST');
+
+            game.render();
+            game.logMsg("准备就绪", 'white');
+        };
+
+        function startGame() {
+            if(timer) return;
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+            timer = setInterval(() => {
+                if(!game.tick()) pauseGame(); 
+            }, 100);
+        }
+
+        function pauseGame() {
+            clearInterval(timer);
+            timer = null;
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+            game.logMsg("暂停", 'yellow');
+        }
+
+        window.placeTower = (t,x,y) => game.buildTower(t,x,y);
+        window.upgradeTower = (id) => game.upgradeTower(id);
+        window.setTowerStrategy = (id, s) => game.setStrategy(id, s);
+
+    </script>
 </body>
 </html>
