@@ -1,94 +1,241 @@
-body {
-    font-family: Arial, sans-serif;
-    background-color: #2c3e50; /* 深色背景 */
-    color: #ecf0f1; /* 浅色文本 */
-    padding: 20px;
+// --- 核心配置数据 (与上一个回复完全相同) ---
+let NEXT_ID = 1;
+const PATH = [ /* ... 路径定义 ... */ ]; 
+const ENEMY_CONFIGS = { /* ... 敌人配置 ... */ };
+const STRATEGIES = { /* ... 策略配置 ... */ };
+const TOWER_CONFIGS = { /* ... 塔配置 ... */ };
+const WAVES_CONFIG = [ /* ... 波次配置 ... */ ];
+
+// --- Canvas 渲染设置 ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const GRID_SIZE = 50; // 每个格子 50x50 像素
+
+// --- 实体类定义 (与上一个回复完全相同) ---
+class Enemy { /* ... 完整的 Enemy 类实现 ... */ }
+class Tower { /* ... 完整的 Tower 类实现 ... */ }
+
+// --- 游戏主类 (与上一个回复的核心逻辑完全相同，但增加了UI更新方法) ---
+class Game {
+    constructor(initialMoney = 500, initialLives = 20) {
+        // ... (属性初始化与方法: buildTower, upgradeTower, setStrategy, startWave, processEnemySpawning, processTowerAttacks, processEnemyMovement)
+        this.tickCount = 0;
+        this.money = initialMoney;
+        this.lives = initialLives;
+        this.wave = 0;
+        this.towers = [];
+        this.enemies = [];
+        this.currentWaveSegment = [];
+        this.waveDelayTimer = 0;
+        
+        // --- UI 相关 ---
+        this.log = document.getElementById('log-output');
+        this.updateUI();
+    }
+    
+    // --- 核心方法 (省略，与上一回复逻辑一致) ---
+    buildTower(type, x, y) { /* ... 逻辑实现 ... */ this.updateUI(); }
+    upgradeTower(towerId) { /* ... 逻辑实现 ... */ this.updateUI(); }
+    setStrategy(towerId, newStrategy) { /* ... 逻辑实现 ... */ }
+    startWave() { /* ... 逻辑实现 ... */ }
+    processEnemySpawning() { /* ... 逻辑实现 ... */ }
+    processTowerAttacks() { /* ... 逻辑实现 ... */ }
+    
+    processEnemyMovement() {
+        // ... (移动和效果逻辑)
+        // ... (金钱和生命值处理)
+        
+        // 渲染更新
+        this.updateUI();
+        this.render();
+        
+        // 检查波次结束
+        if (this.currentWaveSegment.length === 0 && this.enemies.length === 0) {
+            console.log(`Wave ${this.wave} cleared!`);
+            this.money += 50; 
+            this.startWave(); 
+        }
+    }
+
+    tick() {
+        if (this.lives <= 0) {
+            console.log("GAME OVER!");
+            return false;
+        }
+
+        if (this.enemies.length === 0 && this.currentWaveSegment.length === 0 && this.wave === 0) {
+            this.startWave(); 
+        }
+        
+        this.tickCount++;
+        
+        this.processEnemySpawning();
+        this.processTowerAttacks();
+        this.processEnemyMovement();
+        
+        return true;
+    }
+
+    // --- 渲染和 UI 方法 ---
+
+    logMessage(message, color = 'white') {
+        const time = new Date().toLocaleTimeString();
+        const entry = document.createElement('p');
+        entry.innerHTML = `[${time}] ${message}`;
+        entry.style.color = color;
+        this.log.prepend(entry); // 新消息在顶部
+        if (this.log.children.length > 50) this.log.lastChild.remove(); // 保持日志清洁
+    }
+
+    updateUI() {
+        document.getElementById('money-display').textContent = this.money.toFixed(0);
+        document.getElementById('lives-display').textContent = this.lives;
+        document.getElementById('wave-display').textContent = this.wave;
+        document.getElementById('tick-display').textContent = this.tickCount;
+    }
+
+    render() {
+        // 清除画布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. 绘制路径
+        ctx.strokeStyle = '#4A90E2';
+        ctx.lineWidth = 15;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        PATH.forEach((point, index) => {
+            const x = point.x * GRID_SIZE + GRID_SIZE / 2;
+            const y = point.y * GRID_SIZE + GRID_SIZE / 2;
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+
+        // 2. 绘制塔
+        this.towers.forEach(tower => {
+            const centerX = tower.x * GRID_SIZE + GRID_SIZE / 2;
+            const centerY = tower.y * GRID_SIZE + GRID_SIZE / 2;
+            const config = TOWER_CONFIGS[tower.type];
+            
+            // 绘制范围 (玩家体验优化)
+            ctx.fillStyle = `rgba(255, 255, 255, 0.05)`;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, tower.range * GRID_SIZE, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 绘制塔本体
+            ctx.fillStyle = config.color || (tower.type === 'T1' ? '#81c784' : tower.type === 'T2' ? '#ffab40' : tower.type === 'T3' ? '#4fc3f7' : '#b39ddb');
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, GRID_SIZE / 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 绘制等级
+            ctx.fillStyle = 'black';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Lv${tower.level}`, centerX, centerY + 5);
+
+            // 绘制冷却进度 (玩家反馈)
+            if (tower.cooldownCurrent > 0) {
+                 ctx.strokeStyle = 'red';
+                 ctx.lineWidth = 2;
+                 const progressAngle = (tower.cooldownMax - tower.cooldownCurrent) / tower.cooldownMax * Math.PI * 2;
+                 ctx.beginPath();
+                 ctx.arc(centerX, centerY, GRID_SIZE / 3 + 4, 0, progressAngle);
+                 ctx.stroke();
+            }
+        });
+
+        // 3. 绘制敌人
+        this.enemies.forEach(enemy => {
+            const centerX = enemy.x * GRID_SIZE + GRID_SIZE / 2;
+            const centerY = enemy.y * GRID_SIZE + GRID_SIZE / 2;
+            const hpRatio = enemy.hp / enemy.maxHp;
+            const isSlowed = enemy.activeEffects.some(e => e.type === 'Slow');
+            
+            // 绘制敌人本体
+            ctx.fillStyle = enemy.type === 'T_Tank' ? 'darkred' : enemy.type === 'F_Runner' ? 'yellow' : 'white';
+            ctx.beginPath();
+            ctx.rect(centerX - 10, centerY - 10, 20, 20);
+            ctx.fill();
+
+            // 绘制减速效果提示
+            if (isSlowed) {
+                ctx.strokeStyle = 'lightblue';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(centerX - 12, centerY - 12, 24, 24);
+            }
+
+            // 绘制血条背景
+            ctx.fillStyle = 'red';
+            ctx.fillRect(centerX - 15, centerY - 20, 30, 3);
+            
+            // 绘制实际血量
+            ctx.fillStyle = 'green';
+            ctx.fillRect(centerX - 15, centerY - 20, 30 * hpRatio, 3);
+        });
+    }
 }
 
-.container {
-    max-width: 900px;
-    margin: 0 auto;
-    background-color: #34495e;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+// --- 游戏控制和启动 ---
+let game = null;
+let gameInterval = null;
+const TICK_RATE_MS = 100; // 每 100 毫秒一个 tick (10 FPS 模拟)
+
+function startGame() {
+    if (!game) {
+        // 游戏初始化
+        game = new Game(500, 20); 
+        // 放置初始塔 (用于测试)
+        game.buildTower('T1', 2, 6); 
+        game.buildTower('T2', 6, 8); 
+        game.buildTower('T3', 5, 4); 
+        
+        // 确保 T2 的策略被设置 (用于测试索敌逻辑)
+        const t2 = game.towers.find(t => t.type === 'T2');
+        if (t2) t2.setStrategy(STRATEGIES.STRONGEST); 
+    }
+
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('pause-btn').disabled = false;
+
+    // 启动游戏循环
+    gameInterval = setInterval(() => {
+        if (!game.tick()) {
+            clearInterval(gameInterval);
+            gameInterval = null;
+            document.getElementById('pause-btn').disabled = true;
+        }
+    }, TICK_RATE_MS);
+    game.logMessage("游戏启动!", 'lime');
 }
 
-h2 {
-    color: #f1c40f; 
-    border-bottom: 1px solid #4a637a;
-    padding-bottom: 5px;
+function pauseGame() {
+    if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('pause-btn').disabled = true;
+        document.getElementById('start-btn').textContent = '继续模拟';
+        game.logMessage("游戏暂停。", 'yellow');
+    }
 }
 
-.header-status {
-    background-color: #e74c3c; /* 红色突出显示 */
-    padding: 10px;
-    margin-bottom: 20px;
-    border-radius: 4px;
-    font-weight: bold;
+// 供按钮调用的辅助函数
+function placeTower(type, x, y) {
+    if (!game) return alert("请先点击 '开始模拟' 初始化游戏。");
+    game.buildTower(type, x, y);
 }
 
-/* 网格布局 */
-#grid-container {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 10px;
+function upgradeTower(towerId) {
+    if (!game) return alert("请先点击 '开始模拟' 初始化游戏。");
+    game.upgradeTower(towerId);
 }
 
-.grid-cell {
-    background-color: #2c3e50;
-    border: 1px solid #7f8c8d;
-    padding: 15px 5px;
-    text-align: center;
-    border-radius: 4px;
-    min-height: 50px;
-    cursor: pointer; 
-    transition: background-color 0.1s;
-}
-
-.grid-cell:hover {
-    background-color: #586f87; /* 悬停反馈 */
-}
-
-/* 特殊单元格样式 */
-.special-cell { 
-    background-color: #c0392b !important; 
-    color: white;
-    cursor: default;
-}
-.tower-cell {
-    background-color: #27ae60 !important;
-}
-
-/* 操作和按钮样式 */
-.action-menu, .tech-menu {
-    margin-top: 30px;
-    padding: 15px;
-    background-color: #2980b9;
-    border-radius: 4px;
-}
-
-.next-wave-button {
-    margin-top: 15px;
-    padding: 10px 20px;
-    background-color: #2ecc71;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1.1em;
-}
-
-.mutation-button {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 10px;
-    margin-bottom: 8px;
-    background-color: #9b59b6; /* 紫色 */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+function setTowerStrategy(towerId, strategy) {
+    if (!game) return alert("请先点击 '开始模拟' 初始化游戏。");
+    game.setStrategy(towerId, strategy);
 }
